@@ -1,0 +1,1 @@
+class Test {var x = 1;public function new(){t}}

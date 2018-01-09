@@ -1,0 +1,11 @@
+{
+	"target": "haxe_build",
+	"selector": "source.hxml, source.haxe.2",
+	// "cancel": {"kill": true},
+	"variants": [
+		{
+			"name": "Run",
+			"run_after_build": true
+		}
+	]
+}

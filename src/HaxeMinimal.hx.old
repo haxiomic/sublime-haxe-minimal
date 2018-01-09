@@ -1,0 +1,436 @@
+/*
+
+# Todo
+- What happens if a view changes syntax so it's no longer a haxe file?
+	- Use scope rather than extension
+- Function argument completion (see TypeScript plugin for good implementation)
+- Support syntax highlighting and completion in string interpolation '${...}'
+- Build and update errors as the file is changed but use more minimalistic error display
+- Create an error console panel with clickable errors like it used to have
+- Should _always_ buildOnSave but not always produce output
+- Enable auto-completion without a build.hxml file
+- Run on save and show result in custom console. The following should work
+	- New file (without save)
+	- Quick class def (autocomplete should work)
+	- execute haxe-build-run command
+	- Custom panel shows build and run result (probably via neko or --interp)
+- Better system to guess build.hxml – we should find all build.hxml files in a project and check if the view is involved in the compilation
+- Allow build.hxml to be specified
+- Fix weird indent:
+	weird_indent({
+		});
+- Better clear errors
+	- When a compile completes successfully, errors on views that were involved in the build should also be cleared
+	- When a compile error occurs, all the views involved can be considered a compile-error group
+	- If compilation occurs involving any one of those views we clear the errors for all the other views to be reevaluated
+	- We need to make sure the compilation groups object doesn't keep growing for ever
+	? If a view is closed it is removed from all groups
+	- If a group has no groups it is removed
+	* Split displayErrors into parseErrors and displayErrors, where parseErrors gives us our list of views affected by the compile
+- Kill compilation server when unused or sublime exits
+	- Kill it when the last open haxe view closes?
+	- What about multiple windows with a haxe server
+? Use a different haxe server port if 6000 is in use
+- Show symbol usages via panel
+
+# Notes
+- Haxe supports determining all occurrences of a given type, field or variable in all compiled files
+- It also supports 'goto definition' functionality which can help resolve ambiguity in sublime's built-in
+
+# Haxe Bugs
+- Python .exitCode(false) should be asynchronous but instead blocks the thread on long processes. This is because reading the stdout/stderr is a blocking operation. Solution is available here https://stackoverflow.com/questions/375427/non-blocking-read-on-a-subprocess-pipe-in-python
+
+*/
+
+import haxe.io.Path;
+import sys.io.Process;
+
+@:enum
+abstract HaxeExitCode(Int) from Int {
+	var Success = 0;
+	var CompileError = 1;
+	var OtherError = 2;
+}
+
+@:enum 
+abstract RegionTypes(String) to String {
+	var Error = 'error-region';
+}
+
+class HaxeMinimal extends sublime_plugin.EventListener {
+
+	// Settings
+	var buildOnSave = true;
+
+	// State
+	var compileErrorGroups = new Array<Array<sublime.View>>();
+	// we often need to create resources (such as files) when working with a haxe view
+	// this map tracks resources for each unique view id to enable caching and destruction
+	var viewResources = new Map<
+		Int,
+		{
+		}
+	>();
+
+	override function on_query_completions(
+		view: sublime.View,
+		prefix: String,
+		locations: Array<Int>
+	) {
+		trace('on_query_completions', view, prefix, locations);
+		// in order to perform haxe completion, we need the file contents on disk
+		// var viewContents = view.substr(new sublime.Region(0, view.size()));
+		// var tempFilePath = getTempFilePath(view);
+		// sys.io.File.saveContent(tempFilePath, viewContents);
+
+		// determine completion type
+		// we don't handle function call completions here because that requires a more complex interface
+		for (location in locations) {
+			var lastChar = view.substr(location - 1);
+			if (lastChar == '.') {
+				// field access or type path
+			} else {
+				// assume last char is a \w character
+				// toplevel
+			}
+		}
+
+		return null;
+	}
+
+	override function on_modified_async(view: sublime.View) {
+	}
+
+	override function on_post_save_async(view: sublime.View) {
+		trace('on_post_save_async');
+		clearErrors(view);
+
+		if (buildOnSave) {
+			if (isHxFile(view.file_name())) {
+
+				var hxmlFilePath = findBuildHxml(view);
+				if (hxmlFilePath != null) {
+
+					function onBuildComplete() {
+						trace('Haxe compiled successfully');
+						setStatusText(view, 'Haxe compiled successfully');
+						// @! clear errors on associated views
+					}
+					function onBuildError(errorCode: HaxeExitCode, haxeErrorString) {
+						trace('Haxe compilation failed: $haxeErrorString');
+						setStatusText(view, haxeErrorString);
+						if (errorCode == CompileError) {
+							displayErrors(view.window(), Path.directory(hxmlFilePath), haxeErrorString);
+						}
+					}
+
+					tryCompilationServer(
+						6000,
+						function() {
+							buildHxmlFile(hxmlFilePath, 6000, onBuildComplete, onBuildError);
+						},
+						function(_) {
+							buildHxmlFile(hxmlFilePath, null, onBuildComplete, onBuildError);
+						}
+					);
+
+				}
+
+			}
+		}
+	}
+
+	override function on_close(view: sublime.View) {
+		// perform resource clean-up
+		var resources = viewResources.get(view.id());
+		viewResources.remove(view.id());
+	}
+
+	function clearErrors(view: sublime.View) {
+		view.erase_regions(RegionTypes.Error); 
+	}
+
+	// parse haxe error string and highlight errors
+	// @! probably better to split into parseHaxeErrors and displayErrors
+	// return array of view ids with errors
+	function displayErrors(window: sublime.Window, cwd: String, haxeErrorString: String):Array<Int> {
+		// filepath/filename.hx:42: characters 3-9 : Missing ;
+		var errorPositionPattern = ~/^([^:\n]+):(\d+):([\w\d\s-]+:)?\s*(.*)$/gm;
+
+		// see get_error_pos in syntax/lexer.ml in haxe source 
+		var singleCharPattern = ~/character (\d+)/i;
+		var charRangePattern = ~/characters (\d+)-(\d+)/i;
+		var lineRangePattern = ~/lines (\d+)-(\d+)/i;
+
+		var maxErrorsPerView = 1;//Math.POSITIVE_INFINITY;
+		var viewsAffected = new Array<Int>();
+
+		errorPositionPattern.map(haxeErrorString, function(ereg) {
+			var filePath = errorPositionPattern.matched(1);
+			var lineNumber = Std.parseInt(errorPositionPattern.matched(2));
+			var rangeString = errorPositionPattern.matched(3); // may be null
+			var error = errorPositionPattern.matched(4);
+
+			// get sublime view from file path
+			var absoluteFilePath = Path.isAbsolute(filePath) ? filePath : Path.join([cwd, filePath]);
+			var view = window.find_open_file(absoluteFilePath);
+			if (view == null) {
+				trace('View not open: "$absoluteFilePath"');
+				return '';
+			}
+
+			// by default region compasses the line from lineNumbre
+			var regionStart = view.text_point(lineNumber - 1, 0);
+			var regionEnd = view.text_point(lineNumber, 0) - 1;
+
+			// adjust the region if we have a region string in the error
+			if (rangeString != null) {
+				// character positions are from the start of the line
+				// where 1 = first character in line
+				if (singleCharPattern.match(rangeString)) {
+					var characterPosition = Std.parseInt(singleCharPattern.matched(1));
+					// shift region start along line
+					regionStart = regionStart + (characterPosition - 1);
+					regionEnd = regionStart + 1;
+				} else
+				if(charRangePattern.match(rangeString)) {
+					var characterPositionStart = Std.parseInt(charRangePattern.matched(1));
+					var characterPositionEnd = Std.parseInt(charRangePattern.matched(2));
+					var length = characterPositionEnd - characterPositionStart;
+					// shift region start along line and bound by length
+					regionStart = regionStart + (characterPositionStart - 1);
+					regionEnd = regionStart + length;
+				} else
+				if(lineRangePattern.match(rangeString)) {
+					var lineStart = Std.parseInt(lineRangePattern.matched(1));
+					var lineEnd = Std.parseInt(lineRangePattern.matched(2));
+					regionStart = view.text_point(lineStart - 1, 0);
+					regionEnd = view.text_point(lineEnd, 0) - 1;// last character of end line
+				}
+			}
+
+			var region = new sublime.Region(regionStart, regionEnd);
+			var existingRegions = view.get_regions(RegionTypes.Error);
+			if (existingRegions.length < maxErrorsPerView) {
+				view.add_regions(
+					RegionTypes.Error, // region-key
+					existingRegions.concat([region]),
+					'invalid.illegal', //scope
+					'dot' // icon
+					// sublime.Sublime.DRAW_STIPPLED_UNDERLINE
+					// | sublime.Sublime.DRAW_NO_FILL
+					// | sublime.Sublime.DRAW_NO_OUTLINE
+				);
+
+				if (viewsAffected.indexOf(view.id()) == -1) {
+					viewsAffected.push(view.id());
+				}
+			}
+			return '';
+		});
+
+		return viewsAffected;
+	}
+
+	// cache of temp file handles for each view
+	/*
+	var tempFileHandles = new Map<Int, sys.io.FileOutput>();
+	function getTempFileHandle(view: sublime.View) {
+		var fileHandle = tempFileHandles.get(view.id());
+		if (fileHandle == null) {
+			trace('Creating file handle ${view.id()}');
+			var tempFilePath = getTempFilePath(view);
+			fileHandle = sys.io.File.write(tempFilePath, false);
+			tempFileHandles.set(view.id(), fileHandle);
+			// when the view is closed clean up the file and handle 
+			view.onClose(function(view){
+				trace('Cleaning up temp file handle');
+				fileHandle.close();
+				if (sys.FileSystem.exists(tempFilePath)){
+					sys.FileSystem.deleteFile(tempFilePath);
+				}
+				tempFileHandles.remove(view.id());
+			});
+		}
+		return fileHandle;
+	}
+
+	function getTempFilePath(view: sublime.View) {
+		//@! python.lib.gettempdir();
+		//see https://docs.python.org/2/library/tempfile.html
+		//@! file name may be null? needs investigation
+		return view.file_name() + '.tmp';
+	}
+	*/
+
+	function tryCompilationServer(port: Int, onRunning: Void -> Void, onError: String -> Void) {
+		if (isCompilationServerRunning(port)) {
+			trace('Compilation server is running');
+			onRunning();
+		} else {
+			startCompilationServerAsync(port, onRunning, onError);
+		}
+	}
+
+	function isCompilationServerRunning(port: Int) {
+		var process = new Process('haxe', ['--connect', '$port']);
+		var exitCode = process.exitCode(true);
+		return exitCode == 0;
+	}
+
+	function startCompilationServerAsync(port: Int, onStarted: Void->Void, onError: String->Void) {
+		trace('Starting compilation server on port $port');
+
+		var popen = python.lib.subprocess.Popen.create(
+		    ['haxe', '--wait', '$port'],
+		    {
+		    	stdout: python.lib.Subprocess.PIPE,
+		    	stderr: python.lib.Subprocess.PIPE
+		    }
+		);
+
+		var pollInterval_ms = 16;
+
+		function pollLoop() {
+			var exitCode = popen.poll();
+			if (exitCode == null) {
+				// process is running
+				if (isCompilationServerRunning(port)) {
+					onStarted();
+				} else {
+					// process is probably starting up
+					// wait a little longer and poll again
+					sublime.Sublime.set_timeout_async(function(?_) pollLoop(), pollInterval_ms);
+				}
+			} else {
+				// process has exited
+				// to be able to read the stdout/stderr we need a separate thread to buffer it
+				// implementation here
+				onError('Unknown error');
+			}
+		}
+
+		pollLoop();
+	}
+
+	function buildHxmlFile(
+		hxmlFilePath: String,
+		compilationServerPort:Null<Int>,
+		?onComplete: Void -> Void,
+		?onError: Int -> String -> Void
+	) {
+		var hxmlWorkingDirectory = Path.directory(hxmlFilePath);
+		Sys.setCwd(hxmlWorkingDirectory);
+
+		// execute haxe with the hxml file
+		var args = [hxmlFilePath];
+		if (compilationServerPort != null) {
+			args = args.concat(['--connect', '$compilationServerPort']);
+		}
+		var process = new Process('haxe', args);
+		var exitCode = process.exitCode(true);
+		var stdout = process.stdout.readAll().toString();
+		
+		process.close();
+
+		if (exitCode != 0) {
+			var stderr = process.stderr.readAll().toString();
+			if (onError != null) onError(exitCode, stderr);
+		} else {
+			if (onComplete != null) onComplete();
+		}
+	}
+
+	// rough and dirty method for determining hxml file
+	// @! replace with something more robust
+	function findBuildHxml(view: sublime.View):Null<String> {
+		// search local and parent directories for hxml files
+		var maxSearches = 4;
+		var searchDir = Path.directory(view.file_name());
+
+		for(i in 0...4) {
+			var files = sys.FileSystem.readDirectory(searchDir);
+			for (f in files) {
+				if (Path.extension(f).toLowerCase() == 'hxml') {
+					// found a hxml file
+					return Path.join([searchDir, f]);
+				}
+			}
+
+			// use the parent directory for the next loop
+			var parentSearchDir = Path.directory(searchDir);
+			// can't search higher
+			if (parentSearchDir == searchDir) return null;
+			searchDir = parentSearchDir;
+		}
+
+		return null;
+	}
+
+	function setStatusText(view: sublime.View, text: String) {
+		view.set_status('haxe-status', text);
+	}
+
+	function clearStatusText(view: sublime.View) {
+		view.erase_status('haxe-status');
+	}
+
+	function isHxFile(filePath: String) {
+		return (filePath != null) && Path.extension(filePath).toLowerCase() == 'hx';
+	}
+
+	static function main() {
+		// replace haxe.Log.trace so it only uses print()
+		// this is because sublime text has only partial stdout/stderr objects
+		haxe.Log.trace = function(v, ?infos) {
+			var str: String = Std.string(v);
+			var prefix = '';
+			var suffix = '';
+			if (infos != null) {
+				prefix = '${infos.fileName}:${infos.lineNumber}: ';
+				suffix = infos.customParams != null ? (', ' + infos.customParams.join(', ')) : '';
+			}
+			untyped print(prefix + str + suffix);
+		}
+	}
+
+}
+
+@:pythonImport("tempfile")
+extern class Tempfile {
+
+	public static function gettempdir():String;
+	public static function mkstemp(?suffix: String, ?prefix: String, ?dir: String, textMode: Bool): python.lib.FileDescriptor;
+
+}
+
+// Experimental callbacks for sublime events
+/*
+class SublimeEventHandling extends sublime_plugin.EventListener {
+
+	static private var onViewCloseCallbacks = new Map<Int, Array<sublime.View -> Void>>();
+	static public function onClose(view: sublime.View, callback: sublime.View -> Void) {
+		trace('Registering onClose listener ${view.id()}');
+		var callbacks = onViewCloseCallbacks.get(view.id());
+		if (callbacks == null) callbacks = [];
+		callbacks.push(callback);
+		onViewCloseCallbacks.set(view.id(), callbacks);
+	}
+	static private function dispatchViewClose(view: sublime.View) {
+		var callbacks = onViewCloseCallbacks.get(view.id());
+		trace('dispatchViewClose $callbacks');
+		if (callbacks == null) return;
+		for (callback in callbacks) {
+			callback(view);
+		}
+		// since the view has been closed it can no longer emit events
+		onViewCloseCallbacks.remove(view.id());
+	}
+
+	// receive sublime events
+	override function on_close(view:sublime.View):Void {
+		trace('Ready to dispatch onClose event ${view.id()}');
+		SublimeEventHandling.dispatchViewClose(view);
+	}
+
+}*/

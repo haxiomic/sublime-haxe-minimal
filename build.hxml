@@ -1,0 +1,6 @@
+-main HaxePlugin
+-lib sublime-text-3-externs
+-cp src
+-python plugin/haxe_minimal.py
+-dce std
+-D analyzer
