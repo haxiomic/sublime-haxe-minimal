@@ -13,6 +13,7 @@ try:
     import msvcrt as python_lib_Msvcrt
 except:
     pass
+from queue import Queue as python_lib_Queue
 import random as python_lib_Random
 import re as python_lib_Re
 import subprocess as python_lib_Subprocess
@@ -27,12 +28,10 @@ try:
     import tty as python_lib_Tty
 except:
     pass
-from io import BufferedReader as python_lib_io_BufferedReader
-from io import BufferedWriter as python_lib_io_BufferedWriter
 from io import StringIO as python_lib_io_StringIO
-from io import TextIOWrapper as python_lib_io_TextIOWrapper
 from subprocess import Popen as python_lib_subprocess_Popen
 from threading import Lock as python_lib_threading_Lock
+from threading import Thread as python_lib_threading_Thread
 import sublime as sublime_Sublime
 
 
@@ -47,161 +46,29 @@ class Enum:
     _hx_class_name = "Enum"
     __slots__ = ("tag", "index", "params")
     _hx_fields = ["tag", "index", "params"]
+    _hx_methods = ["__str__"]
 
     def __init__(self,tag,index,params):
         self.tag = tag
         self.index = index
         self.params = params
 
-
-class ErrorRange(Enum):
-    __slots__ = ()
-    _hx_class_name = "ErrorRange"
-
-    @staticmethod
-    def Lines(start,end):
-        return ErrorRange("Lines", 0, [start,end])
-
-    @staticmethod
-    def Characters(line,offset,length):
-        return ErrorRange("Characters", 1, [line,offset,length])
-
-
-class Compiler:
-    _hx_class_name = "Compiler"
-    __slots__ = ()
-    _hx_statics = ["buildOnServer", "build", "parseCompilerOutput"]
-
-    @staticmethod
-    def buildOnServer(args,compilationServerPort,fallbackCompile = True,onComplete = None,onError = None):
-        if (fallbackCompile is None):
-            fallbackCompile = True
-        def _hx_local_0():
-            Compiler.build((args + ["--connect", ("" + Std.string(compilationServerPort))]),onComplete,onError)
-        def _hx_local_1(errorMessage):
-            if fallbackCompile:
-                if (onError is not None):
-                    onError(2,errorMessage)
-            else:
-                Compiler.build(args,onComplete,onError)
-        CompilerServer.touchServer(6000,_hx_local_0,_hx_local_1)
-
-    @staticmethod
-    def build(args,onComplete = None,onError = None):
-        process = sys_io_Process("haxe",args)
-        exitCode = process.exitCode(True)
-        stdout = process.stdout.readAll().toString()
-        process.close()
-        if (exitCode != 0):
-            stderr = process.stderr.readAll().toString()
-            if (onError is not None):
-                onError(exitCode,stderr)
+    def __str__(self):
+        if (self.params is None):
+            return self.tag
         else:
-            stderr1 = process.stderr.readAll().toString()
-            stdout1 = process.stdout.readAll().toString()
-            if (onComplete is not None):
-                onComplete(stdout1,stderr1)
+            _this = self.params
+            return (((HxOverrides.stringOrNull(self.tag) + "(") + HxOverrides.stringOrNull(",".join([python_Boot.toString1(x1,'') for x1 in _this]))) + ")")
 
-    @staticmethod
-    def parseCompilerOutput(compilerOutput):
-        errorPositionPattern = EReg("^([^:\n]+):(\\d+):([\\w\\d\\s-]+:)?\\s*(.*)$","gm")
-        singleCharPattern = EReg("character (\\d+)","i")
-        charRangePattern = EReg("characters (\\d+)-(\\d+)","i")
-        lineRangePattern = EReg("lines (\\d+)-(\\d+)","i")
-        errors = list()
-        def _hx_local_0(ereg):
-            filePath = errorPositionPattern.matchObj.group(1)
-            lineNumber = Std.parseInt(errorPositionPattern.matchObj.group(2))
-            rangeString = errorPositionPattern.matchObj.group(3)
-            error = errorPositionPattern.matchObj.group(4)
-            errorRange = ErrorRange.Lines(lineNumber,lineNumber)
-            if (rangeString is not None):
-                singleCharPattern.matchObj = python_lib_Re.search(singleCharPattern.pattern,rangeString)
-                if (singleCharPattern.matchObj is not None):
-                    characterPosition = Std.parseInt(singleCharPattern.matchObj.group(1))
-                    errorRange = ErrorRange.Characters(lineNumber,(characterPosition - 1),1)
-                else:
-                    charRangePattern.matchObj = python_lib_Re.search(charRangePattern.pattern,rangeString)
-                    if (charRangePattern.matchObj is not None):
-                        characterPositionStart = Std.parseInt(charRangePattern.matchObj.group(1))
-                        characterPositionEnd = Std.parseInt(charRangePattern.matchObj.group(2))
-                        length = (characterPositionEnd - characterPositionStart)
-                        errorRange = ErrorRange.Characters(lineNumber,(characterPositionStart - 1),length)
-                    else:
-                        lineRangePattern.matchObj = python_lib_Re.search(lineRangePattern.pattern,rangeString)
-                        if (lineRangePattern.matchObj is not None):
-                            lineStart = Std.parseInt(lineRangePattern.matchObj.group(1))
-                            lineEnd = Std.parseInt(lineRangePattern.matchObj.group(2))
-                            errorRange = ErrorRange.Lines(lineStart,lineEnd)
-            errors.append(_hx_AnonObject({'filePath': filePath, 'error': error, 'range': errorRange}))
-            return ""
-        errorPositionPattern.map(compilerOutput,_hx_local_0)
-
-
-class CompilerServer:
-    _hx_class_name = "CompilerServer"
-    __slots__ = ()
-    _hx_statics = ["touchServer", "isServerRunning", "startServerAsync"]
-
-    @staticmethod
-    def touchServer(port,onRunning,onError):
-        if CompilerServer.isServerRunning(port):
-            haxe_Log.trace("Compiler server is running",_hx_AnonObject({'fileName': "CompilerServer.hx", 'lineNumber': 11, 'className': "CompilerServer", 'methodName': "touchServer"}))
-            onRunning()
-        else:
-            CompilerServer.startServerAsync(port,onRunning,onError)
-
-    @staticmethod
-    def isServerRunning(port):
-        process = sys_io_Process("haxe",["--connect", ("" + Std.string(port))])
-        exitCode = process.exitCode(True)
-        return (exitCode == 0)
-
-    @staticmethod
-    def startServerAsync(port,onStarted,onError):
-        haxe_Log.trace(("Starting Compiler server on port " + Std.string(port)),_hx_AnonObject({'fileName': "CompilerServer.hx", 'lineNumber': 29, 'className': "CompilerServer", 'methodName': "startServerAsync"}))
-        args = ["haxe", "--wait", ("" + Std.string(port))]
-        o = _hx_AnonObject({'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE})
-        Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
-        Reflect.setField(o,"executable",(Reflect.field(o,"executable") if (hasattr(o,(("_hx_" + "executable") if (("executable" in python_Boot.keywords)) else (("_hx_" + "executable") if (((((len("executable") > 2) and ((ord("executable"[0]) == 95))) and ((ord("executable"[1]) == 95))) and ((ord("executable"[(len("executable") - 1)]) != 95)))) else "executable")))) else None))
-        Reflect.setField(o,"stdin",(Reflect.field(o,"stdin") if (hasattr(o,(("_hx_" + "stdin") if (("stdin" in python_Boot.keywords)) else (("_hx_" + "stdin") if (((((len("stdin") > 2) and ((ord("stdin"[0]) == 95))) and ((ord("stdin"[1]) == 95))) and ((ord("stdin"[(len("stdin") - 1)]) != 95)))) else "stdin")))) else None))
-        Reflect.setField(o,"stdout",(Reflect.field(o,"stdout") if (hasattr(o,(("_hx_" + "stdout") if (("stdout" in python_Boot.keywords)) else (("_hx_" + "stdout") if (((((len("stdout") > 2) and ((ord("stdout"[0]) == 95))) and ((ord("stdout"[1]) == 95))) and ((ord("stdout"[(len("stdout") - 1)]) != 95)))) else "stdout")))) else None))
-        Reflect.setField(o,"stderr",(Reflect.field(o,"stderr") if (hasattr(o,(("_hx_" + "stderr") if (("stderr" in python_Boot.keywords)) else (("_hx_" + "stderr") if (((((len("stderr") > 2) and ((ord("stderr"[0]) == 95))) and ((ord("stderr"[1]) == 95))) and ((ord("stderr"[(len("stderr") - 1)]) != 95)))) else "stderr")))) else None))
-        Reflect.setField(o,"preexec_fn",(Reflect.field(o,"preexec_fn") if (hasattr(o,(("_hx_" + "preexec_fn") if (("preexec_fn" in python_Boot.keywords)) else (("_hx_" + "preexec_fn") if (((((len("preexec_fn") > 2) and ((ord("preexec_fn"[0]) == 95))) and ((ord("preexec_fn"[1]) == 95))) and ((ord("preexec_fn"[(len("preexec_fn") - 1)]) != 95)))) else "preexec_fn")))) else None))
-        Reflect.setField(o,"close_fds",(Reflect.field(o,"close_fds") if (hasattr(o,(("_hx_" + "close_fds") if (("close_fds" in python_Boot.keywords)) else (("_hx_" + "close_fds") if (((((len("close_fds") > 2) and ((ord("close_fds"[0]) == 95))) and ((ord("close_fds"[1]) == 95))) and ((ord("close_fds"[(len("close_fds") - 1)]) != 95)))) else "close_fds")))) else None))
-        Reflect.setField(o,"shell",(Reflect.field(o,"shell") if (hasattr(o,(("_hx_" + "shell") if (("shell" in python_Boot.keywords)) else (("_hx_" + "shell") if (((((len("shell") > 2) and ((ord("shell"[0]) == 95))) and ((ord("shell"[1]) == 95))) and ((ord("shell"[(len("shell") - 1)]) != 95)))) else "shell")))) else None))
-        Reflect.setField(o,"cwd",(Reflect.field(o,"cwd") if (hasattr(o,(("_hx_" + "cwd") if (("cwd" in python_Boot.keywords)) else (("_hx_" + "cwd") if (((((len("cwd") > 2) and ((ord("cwd"[0]) == 95))) and ((ord("cwd"[1]) == 95))) and ((ord("cwd"[(len("cwd") - 1)]) != 95)))) else "cwd")))) else None))
-        Reflect.setField(o,"env",(Reflect.field(o,"env") if (hasattr(o,(("_hx_" + "env") if (("env" in python_Boot.keywords)) else (("_hx_" + "env") if (((((len("env") > 2) and ((ord("env"[0]) == 95))) and ((ord("env"[1]) == 95))) and ((ord("env"[(len("env") - 1)]) != 95)))) else "env")))) else None))
-        Reflect.setField(o,"universal_newlines",(Reflect.field(o,"universal_newlines") if (hasattr(o,(("_hx_" + "universal_newlines") if (("universal_newlines" in python_Boot.keywords)) else (("_hx_" + "universal_newlines") if (((((len("universal_newlines") > 2) and ((ord("universal_newlines"[0]) == 95))) and ((ord("universal_newlines"[1]) == 95))) and ((ord("universal_newlines"[(len("universal_newlines") - 1)]) != 95)))) else "universal_newlines")))) else None))
-        Reflect.setField(o,"startupinfo",(Reflect.field(o,"startupinfo") if (hasattr(o,(("_hx_" + "startupinfo") if (("startupinfo" in python_Boot.keywords)) else (("_hx_" + "startupinfo") if (((((len("startupinfo") > 2) and ((ord("startupinfo"[0]) == 95))) and ((ord("startupinfo"[1]) == 95))) and ((ord("startupinfo"[(len("startupinfo") - 1)]) != 95)))) else "startupinfo")))) else None))
-        Reflect.setField(o,"creationflags",(Reflect.field(o,"creationflags") if (hasattr(o,(("_hx_" + "creationflags") if (("creationflags" in python_Boot.keywords)) else (("_hx_" + "creationflags") if (((((len("creationflags") > 2) and ((ord("creationflags"[0]) == 95))) and ((ord("creationflags"[1]) == 95))) and ((ord("creationflags"[(len("creationflags") - 1)]) != 95)))) else "creationflags")))) else 0))
-        popen = (python_lib_subprocess_Popen(args,Reflect.field(o,"bufsize"),Reflect.field(o,"executable"),Reflect.field(o,"stdin"),Reflect.field(o,"stdout"),Reflect.field(o,"stderr"),Reflect.field(o,"preexec_fn"),Reflect.field(o,"close_fds"),Reflect.field(o,"shell"),Reflect.field(o,"cwd"),Reflect.field(o,"env"),Reflect.field(o,"universal_newlines"),Reflect.field(o,"startupinfo"),Reflect.field(o,"creationflags")) if ((Sys.systemName() == "Windows")) else python_lib_subprocess_Popen(args,Reflect.field(o,"bufsize"),Reflect.field(o,"executable"),Reflect.field(o,"stdin"),Reflect.field(o,"stdout"),Reflect.field(o,"stderr"),Reflect.field(o,"preexec_fn"),Reflect.field(o,"close_fds"),Reflect.field(o,"shell"),Reflect.field(o,"cwd"),Reflect.field(o,"env"),Reflect.field(o,"universal_newlines"),Reflect.field(o,"startupinfo")))
-        pollInterval_ms = 16
-        pollLoop = None
-        def _hx_local_1():
-            exitCode = popen.poll()
-            if (exitCode is None):
-                if CompilerServer.isServerRunning(port):
-                    onStarted()
-                else:
-                    def _hx_local_0(_ = None):
-                        pollLoop()
-                    sublime_Sublime.set_timeout_async(_hx_local_0,pollInterval_ms)
-            else:
-                onError("Unknown error")
-        pollLoop = _hx_local_1
-        pollLoop1 = pollLoop
-        pollLoop1()
 
 
 class EReg:
     _hx_class_name = "EReg"
-    __slots__ = ("pattern", "matchObj", "_hx_global")
-    _hx_fields = ["pattern", "matchObj", "global"]
-    _hx_methods = ["replace", "map"]
+    __slots__ = ("pattern", "_hx_global")
+    _hx_fields = ["pattern", "global"]
+    _hx_methods = ["replace"]
 
     def __init__(self,r,opt):
-        self.matchObj = None
         self._hx_global = False
         options = 0
         _g1 = 0
@@ -245,36 +112,6 @@ class EReg:
         replace = _hx_local_0
         return python_lib_Re.sub(self.pattern,replace,s,(0 if (self._hx_global) else 1))
 
-    def map(self,s,f):
-        buf_b = python_lib_io_StringIO()
-        pos = 0
-        right = s
-        cur = self
-        while (pos < len(s)):
-            if (self.matchObj is None):
-                self.matchObj = python_lib_Re.search(self.pattern,s)
-            else:
-                self.matchObj = self.matchObj.re.search(s,pos)
-            if (self.matchObj is None):
-                break
-            pos1 = self.matchObj.end()
-            curPos_pos = cur.matchObj.start()
-            curPos_len = (cur.matchObj.end() - cur.matchObj.start())
-            buf_b.write(Std.string(HxString.substr(HxString.substr(cur.matchObj.string,0,cur.matchObj.start()),pos,None)))
-            buf_b.write(Std.string(f(cur)))
-            right = HxString.substr(cur.matchObj.string,cur.matchObj.end(),None)
-            if (not self._hx_global):
-                buf_b.write(Std.string(right))
-                return buf_b.getvalue()
-            if (curPos_len == 0):
-                buf_b.write(Std.string(("" if (((pos1 < 0) or ((pos1 >= len(s))))) else s[pos1])))
-                right = HxString.substr(right,1,None)
-                pos = (pos1 + 1)
-            else:
-                pos = pos1
-        buf_b.write(Std.string(right))
-        return buf_b.getvalue()
-
 
 
 class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
@@ -305,7 +142,6 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
     def run(self,args = None,run_after_build = False):
         if (run_after_build is None):
             run_after_build = False
-        _gthis = self
         if ((args is not None) and ((args.get("kill") == True))):
             haxe_Log.trace("@! todo: implement cancel build",_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 32, 'className': "HaxeBuildCommand", 'methodName': "run"}))
             return
@@ -334,15 +170,11 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
         else:
             pass
         self.buildInProgress = True
-        def _hx_local_0(stdout,stderr):
-            _gthis.buildInProgress = False
-            _gthis.setBuildStatus(view,"Haxe compiled successfully")
-            _gthis.hideResultsPanel()
-        def _hx_local_1(errorCode,errorMessage):
-            _gthis.buildInProgress = False
-            _gthis.appendPanel(errorMessage)
-            _gthis.showResultsPanel()
-        Compiler.buildOnServer(args1,6000,True,_hx_local_0,_hx_local_1)
+        def _hx_local_0():
+            haxe_Log.trace("HaxeBuildCommand - Server Started!",_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 79, 'className': "HaxeBuildCommand", 'methodName': "run"}))
+        def _hx_local_1(msg):
+            haxe_Log.trace(("HaxeBuildCommand - Server failed to start: " + ("null" if msg is None else msg)),_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 82, 'className': "HaxeBuildCommand", 'methodName': "run"}))
+        HaxeServer.start([],_hx_local_0,_hx_local_1)
 
     def description(self,args = None):
         if ((args is not None) and ((args.get("kill") == True))):
@@ -443,6 +275,124 @@ class HaxeProject:
         return True
 
 
+class HaxeServer:
+    _hx_class_name = "HaxeServer"
+    __slots__ = ()
+    _hx_statics = ["process", "start", "stop", "createIOQueue", "execute"]
+    process = None
+
+    @staticmethod
+    def start(args = None,onStarted = None,onError = None):
+        haxe_Log.trace("HaxeServer.start()",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 18, 'className': "HaxeServer", 'methodName': "start"}))
+        args = ([] if ((args is None)) else args)
+        try:
+            sys = python_lib_Sys
+            moduleNames = Reflect.field(sys,"builtin_module_names")
+            isPosix = (python_internal_ArrayImpl.indexOf(list(moduleNames),"posix",None) != -1)
+            args1 = (["haxe", "--wait", "stdio"] + args)
+            o = _hx_AnonObject({'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE, 'stdin': python_lib_Subprocess.PIPE, 'close_fds': isPosix})
+            Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
+            Reflect.setField(o,"executable",(Reflect.field(o,"executable") if (hasattr(o,(("_hx_" + "executable") if (("executable" in python_Boot.keywords)) else (("_hx_" + "executable") if (((((len("executable") > 2) and ((ord("executable"[0]) == 95))) and ((ord("executable"[1]) == 95))) and ((ord("executable"[(len("executable") - 1)]) != 95)))) else "executable")))) else None))
+            Reflect.setField(o,"stdin",(Reflect.field(o,"stdin") if (hasattr(o,(("_hx_" + "stdin") if (("stdin" in python_Boot.keywords)) else (("_hx_" + "stdin") if (((((len("stdin") > 2) and ((ord("stdin"[0]) == 95))) and ((ord("stdin"[1]) == 95))) and ((ord("stdin"[(len("stdin") - 1)]) != 95)))) else "stdin")))) else None))
+            Reflect.setField(o,"stdout",(Reflect.field(o,"stdout") if (hasattr(o,(("_hx_" + "stdout") if (("stdout" in python_Boot.keywords)) else (("_hx_" + "stdout") if (((((len("stdout") > 2) and ((ord("stdout"[0]) == 95))) and ((ord("stdout"[1]) == 95))) and ((ord("stdout"[(len("stdout") - 1)]) != 95)))) else "stdout")))) else None))
+            Reflect.setField(o,"stderr",(Reflect.field(o,"stderr") if (hasattr(o,(("_hx_" + "stderr") if (("stderr" in python_Boot.keywords)) else (("_hx_" + "stderr") if (((((len("stderr") > 2) and ((ord("stderr"[0]) == 95))) and ((ord("stderr"[1]) == 95))) and ((ord("stderr"[(len("stderr") - 1)]) != 95)))) else "stderr")))) else None))
+            Reflect.setField(o,"preexec_fn",(Reflect.field(o,"preexec_fn") if (hasattr(o,(("_hx_" + "preexec_fn") if (("preexec_fn" in python_Boot.keywords)) else (("_hx_" + "preexec_fn") if (((((len("preexec_fn") > 2) and ((ord("preexec_fn"[0]) == 95))) and ((ord("preexec_fn"[1]) == 95))) and ((ord("preexec_fn"[(len("preexec_fn") - 1)]) != 95)))) else "preexec_fn")))) else None))
+            Reflect.setField(o,"close_fds",(Reflect.field(o,"close_fds") if (hasattr(o,(("_hx_" + "close_fds") if (("close_fds" in python_Boot.keywords)) else (("_hx_" + "close_fds") if (((((len("close_fds") > 2) and ((ord("close_fds"[0]) == 95))) and ((ord("close_fds"[1]) == 95))) and ((ord("close_fds"[(len("close_fds") - 1)]) != 95)))) else "close_fds")))) else None))
+            Reflect.setField(o,"shell",(Reflect.field(o,"shell") if (hasattr(o,(("_hx_" + "shell") if (("shell" in python_Boot.keywords)) else (("_hx_" + "shell") if (((((len("shell") > 2) and ((ord("shell"[0]) == 95))) and ((ord("shell"[1]) == 95))) and ((ord("shell"[(len("shell") - 1)]) != 95)))) else "shell")))) else None))
+            Reflect.setField(o,"cwd",(Reflect.field(o,"cwd") if (hasattr(o,(("_hx_" + "cwd") if (("cwd" in python_Boot.keywords)) else (("_hx_" + "cwd") if (((((len("cwd") > 2) and ((ord("cwd"[0]) == 95))) and ((ord("cwd"[1]) == 95))) and ((ord("cwd"[(len("cwd") - 1)]) != 95)))) else "cwd")))) else None))
+            Reflect.setField(o,"env",(Reflect.field(o,"env") if (hasattr(o,(("_hx_" + "env") if (("env" in python_Boot.keywords)) else (("_hx_" + "env") if (((((len("env") > 2) and ((ord("env"[0]) == 95))) and ((ord("env"[1]) == 95))) and ((ord("env"[(len("env") - 1)]) != 95)))) else "env")))) else None))
+            Reflect.setField(o,"universal_newlines",(Reflect.field(o,"universal_newlines") if (hasattr(o,(("_hx_" + "universal_newlines") if (("universal_newlines" in python_Boot.keywords)) else (("_hx_" + "universal_newlines") if (((((len("universal_newlines") > 2) and ((ord("universal_newlines"[0]) == 95))) and ((ord("universal_newlines"[1]) == 95))) and ((ord("universal_newlines"[(len("universal_newlines") - 1)]) != 95)))) else "universal_newlines")))) else None))
+            Reflect.setField(o,"startupinfo",(Reflect.field(o,"startupinfo") if (hasattr(o,(("_hx_" + "startupinfo") if (("startupinfo" in python_Boot.keywords)) else (("_hx_" + "startupinfo") if (((((len("startupinfo") > 2) and ((ord("startupinfo"[0]) == 95))) and ((ord("startupinfo"[1]) == 95))) and ((ord("startupinfo"[(len("startupinfo") - 1)]) != 95)))) else "startupinfo")))) else None))
+            Reflect.setField(o,"creationflags",(Reflect.field(o,"creationflags") if (hasattr(o,(("_hx_" + "creationflags") if (("creationflags" in python_Boot.keywords)) else (("_hx_" + "creationflags") if (((((len("creationflags") > 2) and ((ord("creationflags"[0]) == 95))) and ((ord("creationflags"[1]) == 95))) and ((ord("creationflags"[(len("creationflags") - 1)]) != 95)))) else "creationflags")))) else 0))
+            popen = (python_lib_subprocess_Popen(args1,Reflect.field(o,"bufsize"),Reflect.field(o,"executable"),Reflect.field(o,"stdin"),Reflect.field(o,"stdout"),Reflect.field(o,"stderr"),Reflect.field(o,"preexec_fn"),Reflect.field(o,"close_fds"),Reflect.field(o,"shell"),Reflect.field(o,"cwd"),Reflect.field(o,"env"),Reflect.field(o,"universal_newlines"),Reflect.field(o,"startupinfo"),Reflect.field(o,"creationflags")) if ((Sys.systemName() == "Windows")) else python_lib_subprocess_Popen(args1,Reflect.field(o,"bufsize"),Reflect.field(o,"executable"),Reflect.field(o,"stdin"),Reflect.field(o,"stdout"),Reflect.field(o,"stderr"),Reflect.field(o,"preexec_fn"),Reflect.field(o,"close_fds"),Reflect.field(o,"shell"),Reflect.field(o,"cwd"),Reflect.field(o,"env"),Reflect.field(o,"universal_newlines"),Reflect.field(o,"startupinfo")))
+            exitCode = popen.poll()
+            if (exitCode is not None):
+                raise _HxException((("Haxe server failed to start (" + Std.string(exitCode)) + ")"))
+            ioQueue = HaxeServer.createIOQueue(popen.stderr)
+            haxe_Log.trace((("Result: \"" + HxOverrides.stringOrNull(HaxeServer.execute(popen,ioQueue,["-version"]))) + "\""),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 49, 'className': "HaxeServer", 'methodName': "start"}))
+            def _hx_local_0(_ = None):
+                popen.terminate()
+            sublime_Sublime.set_timeout_async(_hx_local_0,2000)
+        except Exception as _hx_e:
+            _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
+            e = _hx_e1
+            if (onError is not None):
+                onError(Std.string(e))
+            return
+
+    @staticmethod
+    def stop():
+        HaxeServer.process.terminate()
+
+    @staticmethod
+    def createIOQueue(stdio):
+        def _hx_local_0(out,queue):
+            haxe_Log.trace(("enqueueLines " + Std.string(out)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 68, 'className': "HaxeServer", 'methodName': "createIOQueue"}))
+            line = None
+            while True:
+                line = out.readline()
+                if (not ((len(line) > 0))):
+                    break
+                haxe_Log.trace((("Enqueue thread line (" + Std.string(out)) + "):"),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 71, 'className': "HaxeServer", 'methodName': "createIOQueue", 'customParams': [line]}))
+                queue.put(line)
+            out.close()
+            haxe_Log.trace(("Enqueue thread closed " + Std.string(out)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 75, 'className': "HaxeServer", 'methodName': "createIOQueue"}))
+        enqueueLines = _hx_local_0
+        queue1 = python_lib_Queue()
+        lineReaderThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': enqueueLines, 'args': tuple([stdio, queue1]), 'daemon': True})))
+        lineReaderThread.start()
+        return queue1
+
+    @staticmethod
+    def execute(popen,ioQueue,args):
+        buffer = haxe_io_BytesBuffer()
+        src = haxe_io_Bytes.ofString(("\n" + HxOverrides.stringOrNull("\n".join([python_Boot.toString1(x1,'') for x1 in args]))))
+        b1 = buffer.b
+        b2 = src.b
+        _g1 = 0
+        _g = src.length
+        while (_g1 < _g):
+            i = _g1
+            _g1 = (_g1 + 1)
+            _this = buffer.b
+            _this.append(b2[i])
+        _hx_bytes = buffer.getBytes()
+        length = _hx_bytes.length
+        payloadBytes = haxe_io_Bytes.alloc((4 + length))
+        payloadBytes.b[0] = (length & 255)
+        payloadBytes.b[1] = ((length >> 8) & 255)
+        payloadBytes.b[2] = ((length >> 16) & 255)
+        payloadBytes.b[3] = (HxOverrides.rshift(length, 24) & 255)
+        payloadBytes.blit(4,_hx_bytes,0,length)
+        haxe_Log.trace("Writing buffer: ",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 100, 'className': "HaxeServer", 'methodName': "execute", 'customParams': [payloadBytes.b]}))
+        popen.stdin.write(payloadBytes.b)
+        popen.stdin.flush()
+        message = ""
+        try:
+            bytesRemaining = 0
+            while True:
+                line = ioQueue.get(True,0.3)
+                messageBytes = None
+                bytes1 = haxe_io_Bytes.ofData(line)
+                if (bytesRemaining <= 0):
+                    v = (((bytes1.b[0] | ((bytes1.b[1] << 8))) | ((bytes1.b[2] << 16))) | ((bytes1.b[3] << 24)))
+                    bytesRemaining = ((v | -2147483648) if ((((v & -2147483648)) != 0)) else v)
+                    messageBytes = bytes1.sub(4,(bytes1.length - 4))
+                else:
+                    messageBytes = bytes1
+                message = (("null" if message is None else message) + HxOverrides.stringOrNull(messageBytes.toString()))
+                bytesRemaining = (bytesRemaining - messageBytes.length)
+                if (bytesRemaining == 0):
+                    break
+                if (bytesRemaining < 0):
+                    raise _HxException("Message contained more bytes than expected")
+        except Exception as _hx_e:
+            _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
+            a = _hx_e1
+            haxe_Log.trace("Queue is empty",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 133, 'className': "HaxeServer", 'methodName': "execute"}))
+        return message
+
+
 class HaxeView(sublime_plugin_ViewEventListener):
     _hx_class_name = "HaxeView"
     __slots__ = ()
@@ -501,77 +451,11 @@ class Reflect:
 class Std:
     _hx_class_name = "Std"
     __slots__ = ()
-    _hx_statics = ["string", "parseInt", "shortenPossibleNumber", "parseFloat"]
+    _hx_statics = ["string"]
 
     @staticmethod
     def string(s):
         return python_Boot.toString1(s,"")
-
-    @staticmethod
-    def parseInt(x):
-        if (x is None):
-            return None
-        try:
-            return int(x)
-        except Exception as _hx_e:
-            _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-            e = _hx_e1
-            try:
-                prefix = HxString.substr(x,0,2).lower()
-                if (prefix == "0x"):
-                    return int(x,16)
-                raise _HxException("fail")
-            except Exception as _hx_e:
-                _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-                e1 = _hx_e1
-                x1 = Std.parseFloat(x)
-                r = None
-                try:
-                    r = int(x1)
-                except Exception as _hx_e:
-                    _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-                    e2 = _hx_e1
-                    r = None
-                if (r is None):
-                    r1 = Std.shortenPossibleNumber(x)
-                    if (r1 != x):
-                        return Std.parseInt(r1)
-                    else:
-                        return None
-                return r
-
-    @staticmethod
-    def shortenPossibleNumber(x):
-        r = ""
-        _g1 = 0
-        _g = len(x)
-        while (_g1 < _g):
-            i = _g1
-            _g1 = (_g1 + 1)
-            c = ("" if (((i < 0) or ((i >= len(x))))) else x[i])
-            _g2 = HxString.charCodeAt(c,0)
-            if (_g2 is None):
-                break
-            else:
-                _g21 = _g2
-                if (((((((((((_g21 == 57) or ((_g21 == 56))) or ((_g21 == 55))) or ((_g21 == 54))) or ((_g21 == 53))) or ((_g21 == 52))) or ((_g21 == 51))) or ((_g21 == 50))) or ((_g21 == 49))) or ((_g21 == 48))) or ((_g21 == 46))):
-                    r = (("null" if r is None else r) + ("null" if c is None else c))
-                else:
-                    break
-        return r
-
-    @staticmethod
-    def parseFloat(x):
-        try:
-            return float(x)
-        except Exception as _hx_e:
-            _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-            e = _hx_e1
-            if (x is not None):
-                r1 = Std.shortenPossibleNumber(x)
-                if (r1 != x):
-                    return Std.parseFloat(r1)
-            return Math.NaN
 
 
 class StringBuf:
@@ -857,8 +741,8 @@ class haxe_io_Bytes:
     _hx_class_name = "haxe.io.Bytes"
     __slots__ = ("length", "b")
     _hx_fields = ["length", "b"]
-    _hx_methods = ["blit", "getString", "toString"]
-    _hx_statics = ["alloc", "ofData"]
+    _hx_methods = ["blit", "sub", "getString", "toString"]
+    _hx_statics = ["alloc", "ofString", "ofData"]
 
     def __init__(self,length,b):
         self.length = length
@@ -868,6 +752,11 @@ class haxe_io_Bytes:
         if (((((pos < 0) or ((srcpos < 0))) or ((_hx_len < 0))) or (((pos + _hx_len) > self.length))) or (((srcpos + _hx_len) > src.length))):
             raise _HxException(haxe_io_Error.OutsideBounds)
         self.b[pos:pos+_hx_len] = src.b[srcpos:srcpos+_hx_len]
+
+    def sub(self,pos,_hx_len):
+        if (((pos < 0) or ((_hx_len < 0))) or (((pos + _hx_len) > self.length))):
+            raise _HxException(haxe_io_Error.OutsideBounds)
+        return haxe_io_Bytes(_hx_len,self.b[pos:(pos + _hx_len)])
 
     def getString(self,pos,_hx_len):
         if (((pos < 0) or ((_hx_len < 0))) or (((pos + _hx_len) > self.length))):
@@ -880,6 +769,11 @@ class haxe_io_Bytes:
     @staticmethod
     def alloc(length):
         return haxe_io_Bytes(length,bytearray(length))
+
+    @staticmethod
+    def ofString(s):
+        b = bytearray(s,"UTF-8")
+        return haxe_io_Bytes(len(b),b)
 
     @staticmethod
     def ofData(b):
@@ -903,19 +797,6 @@ class haxe_io_BytesBuffer:
         return _hx_bytes
 
 
-
-class haxe_io_Eof:
-    _hx_class_name = "haxe.io.Eof"
-    __slots__ = ()
-    _hx_methods = ["toString"]
-
-    def __init__(self):
-        pass
-
-    def toString(self):
-        return "Eof"
-
-
 class haxe_io_Error(Enum):
     __slots__ = ()
     _hx_class_name = "haxe.io.Error"
@@ -932,61 +813,11 @@ class haxe_io_Input:
     _hx_class_name = "haxe.io.Input"
     __slots__ = ("bigEndian",)
     _hx_fields = ["bigEndian"]
-    _hx_methods = ["readByte", "readBytes", "set_bigEndian", "readAll"]
-
-    def readByte(self):
-        raise _HxException("Not implemented")
-
-    def readBytes(self,s,pos,_hx_len):
-        k = _hx_len
-        b = s.b
-        if (((pos < 0) or ((_hx_len < 0))) or (((pos + _hx_len) > s.length))):
-            raise _HxException(haxe_io_Error.OutsideBounds)
-        try:
-            while (k > 0):
-                b[pos] = self.readByte()
-                pos = (pos + 1)
-                k = (k - 1)
-        except Exception as _hx_e:
-            _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-            if isinstance(_hx_e1, haxe_io_Eof):
-                    pass
-            else:
-                raise _hx_e
-        return (_hx_len - k)
+    _hx_methods = ["set_bigEndian"]
 
     def set_bigEndian(self,b):
         self.bigEndian = b
         return b
-
-    def readAll(self,bufsize = None):
-        if (bufsize is None):
-            bufsize = 16384
-        buf = haxe_io_Bytes.alloc(bufsize)
-        total = haxe_io_BytesBuffer()
-        try:
-            while True:
-                _hx_len = self.readBytes(buf,0,bufsize)
-                if (_hx_len == 0):
-                    raise _HxException(haxe_io_Error.Blocked)
-                if ((_hx_len < 0) or ((_hx_len > buf.length))):
-                    raise _HxException(haxe_io_Error.OutsideBounds)
-                b1 = total.b
-                b2 = buf.b
-                _g1 = 0
-                _g = _hx_len
-                while (_g1 < _g):
-                    i = _g1
-                    _g1 = (_g1 + 1)
-                    _this = total.b
-                    _this.append(b2[i])
-        except Exception as _hx_e:
-            _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-            if isinstance(_hx_e1, haxe_io_Eof):
-                    pass
-            else:
-                raise _hx_e
-        return total.getBytes()
 
 
 
@@ -1693,7 +1524,7 @@ class _HxException(Exception):
 class HxOverrides:
     _hx_class_name = "HxOverrides"
     __slots__ = ()
-    _hx_statics = ["eq", "stringOrNull", "mapKwArgs"]
+    _hx_statics = ["eq", "stringOrNull", "rshift", "mapKwArgs"]
 
     @staticmethod
     def eq(a,b):
@@ -1707,6 +1538,10 @@ class HxOverrides:
             return "null"
         else:
             return s
+
+    @staticmethod
+    def rshift(val,n):
+        return ((val % 0x100000000) >> n)
 
     @staticmethod
     def mapKwArgs(a,v):
@@ -1823,7 +1658,7 @@ class python_io_NativeInput(haxe_io_Input):
     _hx_class_name = "python.io.NativeInput"
     __slots__ = ("stream", "wasEof")
     _hx_fields = ["stream", "wasEof"]
-    _hx_methods = ["throwEof", "readinto", "readBytes"]
+    _hx_methods = []
     _hx_statics = []
     _hx_super = haxe_io_Input
 
@@ -1836,52 +1671,25 @@ class python_io_NativeInput(haxe_io_Input):
         if (not self.stream.readable()):
             raise _HxException("Write-only stream")
 
-    def throwEof(self):
-        self.wasEof = True
-        raise _HxException(haxe_io_Eof())
-
-    def readinto(self,b):
-        raise _HxException("abstract method, should be overridden")
-
-    def readBytes(self,s,pos,_hx_len):
-        if (((pos < 0) or ((_hx_len < 0))) or (((pos + _hx_len) > s.length))):
-            raise _HxException(haxe_io_Error.OutsideBounds)
-        ba = bytearray(_hx_len)
-        ret = self.readinto(ba)
-        if (ret == 0):
-            self.throwEof()
-        s.blit(pos,haxe_io_Bytes.ofData(ba),0,_hx_len)
-        return ret
-
 
 
 class python_io_IInput:
     _hx_class_name = "python.io.IInput"
     __slots__ = ()
-    _hx_methods = ["set_bigEndian", "readByte", "readBytes", "readAll"]
+    _hx_methods = ["set_bigEndian"]
 
 
 class python_io_NativeBytesInput(python_io_NativeInput):
     _hx_class_name = "python.io.NativeBytesInput"
     __slots__ = ()
     _hx_fields = []
-    _hx_methods = ["readByte", "readinto"]
+    _hx_methods = []
     _hx_statics = []
     _hx_super = python_io_NativeInput
 
 
     def __init__(self,stream):
         super().__init__(stream)
-
-    def readByte(self):
-        ret = self.stream.read(1)
-        if (len(ret) == 0):
-            self.throwEof()
-        return ret[0]
-
-    def readinto(self,b):
-        return self.stream.readinto(b)
-
 
 
 class python_io_IFileInput:
@@ -1961,23 +1769,13 @@ class python_io_NativeTextInput(python_io_NativeInput):
     _hx_class_name = "python.io.NativeTextInput"
     __slots__ = ()
     _hx_fields = []
-    _hx_methods = ["readByte", "readinto"]
+    _hx_methods = []
     _hx_statics = []
     _hx_super = python_io_NativeInput
 
 
     def __init__(self,stream):
         super().__init__(stream)
-
-    def readByte(self):
-        ret = self.stream.read(1)
-        if (len(ret) == 0):
-            self.throwEof()
-        return HxString.charCodeAt(ret,0)
-
-    def readinto(self,b):
-        return self.stream.buffer.readinto(b)
-
 
 
 class python_io_FileTextInput(python_io_NativeTextInput):
@@ -2039,7 +1837,7 @@ class sys_io_FileInput(haxe_io_Input):
     _hx_class_name = "sys.io.FileInput"
     __slots__ = ("impl",)
     _hx_fields = ["impl"]
-    _hx_methods = ["set_bigEndian", "readByte", "readBytes", "readAll"]
+    _hx_methods = ["set_bigEndian"]
     _hx_statics = []
     _hx_super = haxe_io_Input
 
@@ -2049,15 +1847,6 @@ class sys_io_FileInput(haxe_io_Input):
 
     def set_bigEndian(self,b):
         return self.impl.set_bigEndian(b)
-
-    def readByte(self):
-        return self.impl.readByte()
-
-    def readBytes(self,s,pos,_hx_len):
-        return self.impl.readBytes(s,pos,_hx_len)
-
-    def readAll(self,bufsize = None):
-        return self.impl.readAll(bufsize)
 
 
 
@@ -2075,68 +1864,6 @@ class sys_io_FileOutput(haxe_io_Output):
 
     def set_bigEndian(self,b):
         return self.impl.set_bigEndian(b)
-
-
-
-class sys_io_Process:
-    _hx_class_name = "sys.io.Process"
-    __slots__ = ("stdout", "stderr", "stdin", "p")
-    _hx_fields = ["stdout", "stderr", "stdin", "p"]
-    _hx_methods = ["exitCode", "close"]
-
-    def __init__(self,cmd,args = None,detached = None):
-        self.stdin = None
-        self.stderr = None
-        self.stdout = None
-        if detached:
-            raise _HxException("Detached process is not supported on this platform")
-        args1 = (cmd if ((args is None)) else ([cmd] + args))
-        o = _hx_AnonObject({'shell': (args is None), 'stdin': python_lib_Subprocess.PIPE, 'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE})
-        Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
-        Reflect.setField(o,"executable",(Reflect.field(o,"executable") if (hasattr(o,(("_hx_" + "executable") if (("executable" in python_Boot.keywords)) else (("_hx_" + "executable") if (((((len("executable") > 2) and ((ord("executable"[0]) == 95))) and ((ord("executable"[1]) == 95))) and ((ord("executable"[(len("executable") - 1)]) != 95)))) else "executable")))) else None))
-        Reflect.setField(o,"stdin",(Reflect.field(o,"stdin") if (hasattr(o,(("_hx_" + "stdin") if (("stdin" in python_Boot.keywords)) else (("_hx_" + "stdin") if (((((len("stdin") > 2) and ((ord("stdin"[0]) == 95))) and ((ord("stdin"[1]) == 95))) and ((ord("stdin"[(len("stdin") - 1)]) != 95)))) else "stdin")))) else None))
-        Reflect.setField(o,"stdout",(Reflect.field(o,"stdout") if (hasattr(o,(("_hx_" + "stdout") if (("stdout" in python_Boot.keywords)) else (("_hx_" + "stdout") if (((((len("stdout") > 2) and ((ord("stdout"[0]) == 95))) and ((ord("stdout"[1]) == 95))) and ((ord("stdout"[(len("stdout") - 1)]) != 95)))) else "stdout")))) else None))
-        Reflect.setField(o,"stderr",(Reflect.field(o,"stderr") if (hasattr(o,(("_hx_" + "stderr") if (("stderr" in python_Boot.keywords)) else (("_hx_" + "stderr") if (((((len("stderr") > 2) and ((ord("stderr"[0]) == 95))) and ((ord("stderr"[1]) == 95))) and ((ord("stderr"[(len("stderr") - 1)]) != 95)))) else "stderr")))) else None))
-        Reflect.setField(o,"preexec_fn",(Reflect.field(o,"preexec_fn") if (hasattr(o,(("_hx_" + "preexec_fn") if (("preexec_fn" in python_Boot.keywords)) else (("_hx_" + "preexec_fn") if (((((len("preexec_fn") > 2) and ((ord("preexec_fn"[0]) == 95))) and ((ord("preexec_fn"[1]) == 95))) and ((ord("preexec_fn"[(len("preexec_fn") - 1)]) != 95)))) else "preexec_fn")))) else None))
-        Reflect.setField(o,"close_fds",(Reflect.field(o,"close_fds") if (hasattr(o,(("_hx_" + "close_fds") if (("close_fds" in python_Boot.keywords)) else (("_hx_" + "close_fds") if (((((len("close_fds") > 2) and ((ord("close_fds"[0]) == 95))) and ((ord("close_fds"[1]) == 95))) and ((ord("close_fds"[(len("close_fds") - 1)]) != 95)))) else "close_fds")))) else None))
-        Reflect.setField(o,"shell",(Reflect.field(o,"shell") if (hasattr(o,(("_hx_" + "shell") if (("shell" in python_Boot.keywords)) else (("_hx_" + "shell") if (((((len("shell") > 2) and ((ord("shell"[0]) == 95))) and ((ord("shell"[1]) == 95))) and ((ord("shell"[(len("shell") - 1)]) != 95)))) else "shell")))) else None))
-        Reflect.setField(o,"cwd",(Reflect.field(o,"cwd") if (hasattr(o,(("_hx_" + "cwd") if (("cwd" in python_Boot.keywords)) else (("_hx_" + "cwd") if (((((len("cwd") > 2) and ((ord("cwd"[0]) == 95))) and ((ord("cwd"[1]) == 95))) and ((ord("cwd"[(len("cwd") - 1)]) != 95)))) else "cwd")))) else None))
-        Reflect.setField(o,"env",(Reflect.field(o,"env") if (hasattr(o,(("_hx_" + "env") if (("env" in python_Boot.keywords)) else (("_hx_" + "env") if (((((len("env") > 2) and ((ord("env"[0]) == 95))) and ((ord("env"[1]) == 95))) and ((ord("env"[(len("env") - 1)]) != 95)))) else "env")))) else None))
-        Reflect.setField(o,"universal_newlines",(Reflect.field(o,"universal_newlines") if (hasattr(o,(("_hx_" + "universal_newlines") if (("universal_newlines" in python_Boot.keywords)) else (("_hx_" + "universal_newlines") if (((((len("universal_newlines") > 2) and ((ord("universal_newlines"[0]) == 95))) and ((ord("universal_newlines"[1]) == 95))) and ((ord("universal_newlines"[(len("universal_newlines") - 1)]) != 95)))) else "universal_newlines")))) else None))
-        Reflect.setField(o,"startupinfo",(Reflect.field(o,"startupinfo") if (hasattr(o,(("_hx_" + "startupinfo") if (("startupinfo" in python_Boot.keywords)) else (("_hx_" + "startupinfo") if (((((len("startupinfo") > 2) and ((ord("startupinfo"[0]) == 95))) and ((ord("startupinfo"[1]) == 95))) and ((ord("startupinfo"[(len("startupinfo") - 1)]) != 95)))) else "startupinfo")))) else None))
-        Reflect.setField(o,"creationflags",(Reflect.field(o,"creationflags") if (hasattr(o,(("_hx_" + "creationflags") if (("creationflags" in python_Boot.keywords)) else (("_hx_" + "creationflags") if (((((len("creationflags") > 2) and ((ord("creationflags"[0]) == 95))) and ((ord("creationflags"[1]) == 95))) and ((ord("creationflags"[(len("creationflags") - 1)]) != 95)))) else "creationflags")))) else 0))
-        self.p = (python_lib_subprocess_Popen(args1,Reflect.field(o,"bufsize"),Reflect.field(o,"executable"),Reflect.field(o,"stdin"),Reflect.field(o,"stdout"),Reflect.field(o,"stderr"),Reflect.field(o,"preexec_fn"),Reflect.field(o,"close_fds"),Reflect.field(o,"shell"),Reflect.field(o,"cwd"),Reflect.field(o,"env"),Reflect.field(o,"universal_newlines"),Reflect.field(o,"startupinfo"),Reflect.field(o,"creationflags")) if ((Sys.systemName() == "Windows")) else python_lib_subprocess_Popen(args1,Reflect.field(o,"bufsize"),Reflect.field(o,"executable"),Reflect.field(o,"stdin"),Reflect.field(o,"stdout"),Reflect.field(o,"stderr"),Reflect.field(o,"preexec_fn"),Reflect.field(o,"close_fds"),Reflect.field(o,"shell"),Reflect.field(o,"cwd"),Reflect.field(o,"env"),Reflect.field(o,"universal_newlines"),Reflect.field(o,"startupinfo")))
-        self.stdout = python_io_IoTools.createFileInputFromText(python_lib_io_TextIOWrapper(python_lib_io_BufferedReader(self.p.stdout)))
-        self.stderr = python_io_IoTools.createFileInputFromText(python_lib_io_TextIOWrapper(python_lib_io_BufferedReader(self.p.stderr)))
-        self.stdin = python_io_IoTools.createFileOutputFromText(python_lib_io_TextIOWrapper(python_lib_io_BufferedWriter(self.p.stdin)))
-
-    def exitCode(self,block = True):
-        if (block is None):
-            block = True
-        if (block == False):
-            return self.p.poll()
-        return self.p.wait()
-
-    def close(self):
-        ver = python_lib_Sys.version_info
-        if ((ver[0] > 3) or (((ver[0] == 3) and ((ver[1] >= 3))))):
-            try:
-                self.p.terminate()
-            except Exception as _hx_e:
-                _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-                if isinstance(_hx_e1, ProcessLookupError):
-                        pass
-                else:
-                    raise _hx_e
-        else:
-            try:
-                self.p.terminate()
-            except Exception as _hx_e:
-                _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-                if isinstance(_hx_e1, OSError):
-                        pass
-                else:
-                    raise _hx_e
 
 
 Math.NEGATIVE_INFINITY = float("-inf")

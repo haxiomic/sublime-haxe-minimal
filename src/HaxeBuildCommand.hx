@@ -72,22 +72,16 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 		}
 
 		buildInProgress = true;
-		Compiler.buildOnServer(
-			args,
-			6000,
-			true,
-			function(stdout, stderr) {
-				buildInProgress = false;
-				setBuildStatus(view, 'Haxe compiled successfully');
-				hideResultsPanel();
+
+		HaxeServer.start(
+			[],
+			function() {
+				trace('HaxeBuildCommand - Server Started!');
 			},
-			function(errorCode, errorMessage) {
-				buildInProgress = false;
-				appendPanel(errorMessage);
-				showResultsPanel();
+			function(msg) {
+				trace('HaxeBuildCommand - Server failed to start: $msg');
 			}
 		);
-
 	}
 
 	override function description(?args:python.Dict<String, Any>):String {
