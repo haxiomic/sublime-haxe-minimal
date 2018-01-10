@@ -1,4 +1,5 @@
 # Todo
+- Kill processes when plugin unloaded?
 - Faster completion:
 	https://github.com/vshaxe/vshaxe/wiki/Completion-Cache
 - What happens if a view changes syntax so it's no longer a haxe file?

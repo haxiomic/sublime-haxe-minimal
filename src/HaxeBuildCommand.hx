@@ -78,13 +78,21 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 		buildHandle = haxeServer.buildAsync(
 			hxmlContent,
 			function(result){
-				if (result.output.length > 0) {
-					appendPanel(result.output);
-					showResultsPanel();
-				} else {
+				
+				if (!result.hasError) {
 					appendPanel('\nBuild complete\n');
 					showResultsPanel();
+				} else {
+					appendPanel('\nBuild failed\n');
+					showResultsPanel();
 				}
+
+				if (result.output.length > 0) {
+					appendPanel('\n');
+					appendPanel(result.output);
+					showResultsPanel();
+				}
+
 				trace('Results', result);
 
 				buildHandle = null;

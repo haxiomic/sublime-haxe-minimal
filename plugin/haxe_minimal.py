@@ -180,13 +180,17 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
             raise _HxException("Not yet supported")
         haxeServer1 = haxeServer
         def _hx_local_0(result):
-            if (len(result.output) > 0):
-                _gthis.appendPanel(result.output)
-                _gthis.showResultsPanel()
-            else:
+            if (not result.hasError):
                 _gthis.appendPanel("\nBuild complete\n")
                 _gthis.showResultsPanel()
-            haxe_Log.trace("Results",_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 88, 'className': "HaxeBuildCommand", 'methodName': "run", 'customParams': [result]}))
+            else:
+                _gthis.appendPanel("\nBuild failed\n")
+                _gthis.showResultsPanel()
+            if (len(result.output) > 0):
+                _gthis.appendPanel("\n")
+                _gthis.appendPanel(result.output)
+                _gthis.showResultsPanel()
+            haxe_Log.trace("Results",_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 96, 'className': "HaxeBuildCommand", 'methodName': "run", 'customParams': [result]}))
             _gthis.buildHandle = None
         def _hx_local_1(log):
             _gthis.appendPanel(log)
@@ -318,14 +322,13 @@ class HaxeServer:
 
 class HaxeServerStdio:
     _hx_class_name = "HaxeServerStdio"
-    __slots__ = ("processUserArgs", "process", "processWriteLock", "haxeVersionString", "errQueue")
-    _hx_fields = ["processUserArgs", "process", "processWriteLock", "haxeVersionString", "errQueue"]
-    _hx_methods = ["start", "restart", "terminate", "buildAsync", "display", "build", "execute", "readServerMessage"]
-    _hx_statics = ["createIOQueue"]
+    __slots__ = ("processUserArgs", "process", "processWriteLock", "errQueue")
+    _hx_fields = ["processUserArgs", "process", "processWriteLock", "errQueue"]
+    _hx_methods = ["start", "restart", "terminate", "buildAsync", "display", "build", "execute"]
+    _hx_statics = ["createServerMessageQueue"]
 
     def __init__(self,args = None):
         self.errQueue = None
-        self.haxeVersionString = None
         self.process = None
         self.processWriteLock = python_lib_threading_Lock()
         self.processUserArgs = list()
@@ -337,7 +340,7 @@ class HaxeServerStdio:
         sys = python_lib_Sys
         moduleNames = Reflect.field(sys,"builtin_module_names")
         isPosix = (python_internal_ArrayImpl.indexOf(list(moduleNames),"posix",None) != -1)
-        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 62, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 60, 'className': "HaxeServerStdio", 'methodName': "start"}))
         args1 = (["haxe", "--wait", "stdio"] + args)
         o = _hx_AnonObject({'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE, 'stdin': python_lib_Subprocess.PIPE, 'close_fds': isPosix})
         Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
@@ -358,8 +361,9 @@ class HaxeServerStdio:
         if (exitCode is not None):
             errorMessage = self.process.stderr.readall().decode("utf-8")
             raise _HxException(((("Haxe server failed to start: (" + Std.string(exitCode)) + ") ") + ("null" if errorMessage is None else errorMessage)))
-        self.errQueue = HaxeServerStdio.createIOQueue(self.process.stderr)
-        self.haxeVersionString = self.execute("-version",3).output
+        self.errQueue = HaxeServerStdio.createServerMessageQueue(self.process.stderr)
+        haxeVersionString = self.execute("-version",1.5).toString()
+        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 83, 'className': "HaxeServerStdio", 'methodName': "start"}))
 
     def restart(self):
         self.terminate()
@@ -370,13 +374,12 @@ class HaxeServerStdio:
             self.process.terminate()
         self.process = None
         self.errQueue = None
-        self.haxeVersionString = None
 
-    def buildAsync(self,hxml,onComplete,handleLog = None):
+    def buildAsync(self,hxml,onComplete,handleLog = None,timeout_s = None):
         _gthis = self
         cancelled = False
         def _hx_local_0():
-            result = _gthis.build(hxml,handleLog)
+            result = _gthis.build(hxml,handleLog,timeout_s)
             if (not cancelled):
                 onComplete(result)
         buildCallback = _hx_local_0
@@ -399,21 +402,39 @@ class HaxeServerStdio:
         displayDirectives = (("null" if displayDirectives is None else displayDirectives) + HxOverrides.stringOrNull(((((("\n--display \"" + ("null" if filePath is None else filePath)) + "\"@") + Std.string(location)) + ("null" if modeString is None else modeString)))))
         if (fileContent is not None):
             displayDirectives = (("null" if displayDirectives is None else displayDirectives) + HxOverrides.stringOrNull(((("\n" + "\x01") + ("null" if fileContent is None else fileContent)))))
-        result = self.execute((("null" if hxml is None else hxml) + ("null" if displayDirectives is None else displayDirectives)),timeout_s)
+        result = self.execute((("null" if hxml is None else hxml) + ("null" if displayDirectives is None else displayDirectives)),timeout_s).toString()
+        hasError = False
+        if (((-1 if ((0 >= len(result))) else ord(result[0]))) != ((-1 if ((0 >= len("<"))) else ord("<"[0])))):
+            hasError = (result.find("\x02") != -1)
+        haxe_Log.trace(result,_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 155, 'className': "HaxeServerStdio", 'methodName': "display"}))
 
-    def build(self,hxml,handleLog = None):
-        timeout_s = 120
-        hxml = (("null" if hxml is None else hxml) + "\n--next\n-version")
-        hxml = hxml
-        result = self.execute(hxml,timeout_s,handleLog)
-        _this = result.output
-        _hx_str = self.haxeVersionString
-        versionStart = _this.rfind(_hx_str, 0, len(_this))
-        versionEnd = (versionStart + len(self.haxeVersionString))
-        result.output = (HxOverrides.stringOrNull(HxString.substring(result.output,0,versionStart)) + HxOverrides.stringOrNull(HxString.substring(result.output,versionEnd,None)))
-        return result
+    def build(self,hxml,handleLog = None,timeout_s = 120):
+        if (timeout_s is None):
+            timeout_s = 120
+        result = self.execute(hxml,timeout_s)
+        hasError = False
+        output = ""
+        _this = result.toString()
+        lines = _this.split("\n")
+        _g = 0
+        while (_g < len(lines)):
+            line = (lines[_g] if _g >= 0 and _g < len(lines) else None)
+            _g = (_g + 1)
+            _g1 = (-1 if ((0 >= len(line))) else ord(line[0]))
+            _g11 = _g1
+            if (_g11 == 1):
+                logLine = StringTools.replace(HxString.substr(line,1,None),"\x01","\n")
+                if (handleLog is not None):
+                    handleLog(logLine)
+                else:
+                    print(("Haxe > " + HxOverrides.stringOrNull(StringTools.rtrim(logLine))))
+            elif (_g11 == 2):
+                hasError = True
+            else:
+                output = (("null" if output is None else output) + ("null" if line is None else line))
+        return _hx_AnonObject({'output': output, 'hasError': hasError})
 
-    def execute(self,hxml,timeout_s = None,handleLog = None):
+    def execute(self,hxml,timeout_s = None):
         buffer = haxe_io_BytesBuffer()
         src = haxe_io_Bytes.ofString((("\n" + ("null" if hxml is None else hxml)) + "\n"))
         b1 = buffer.b
@@ -434,7 +455,6 @@ class HaxeServerStdio:
         payloadBytes.b[3] = (HxOverrides.rshift(length, 24) & 255)
         payloadBytes.blit(4,_hx_bytes,0,length)
         self.processWriteLock.acquire()
-        haxe_Log.trace("Writing buffer: ",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 185, 'className': "HaxeServerStdio", 'methodName': "execute", 'customParams': [payloadBytes.b]}))
         try:
             while True:
                 self.errQueue.get(False)
@@ -445,82 +465,36 @@ class HaxeServerStdio:
             else:
                 raise _hx_e
         self.process.stdin.write(payloadBytes.b)
-        result = self.readServerMessage(self.errQueue,timeout_s,handleLog)
+        self.process.stdin.flush()
+        result = self.errQueue.get(True,timeout_s)
         self.processWriteLock.release()
         return result
 
-    def readServerMessage(self,ioQueue,timeout_s = None,handleLog = None):
-        messageBuffer = haxe_io_BytesOutput()
-        hasError = False
-        bytesRemaining = 0
-        messageEncodingError = False
-        try:
-            while True:
-                line = ioQueue.get(True,timeout_s)
-                messageChunk = None
-                _hx_bytes = haxe_io_Bytes.ofData(line)
-                if (bytesRemaining <= 0):
-                    if (_hx_bytes.length < 4):
-                        raise _HxException("Haxe server replied with an invalid message")
-                    v = (((_hx_bytes.b[0] | ((_hx_bytes.b[1] << 8))) | ((_hx_bytes.b[2] << 16))) | ((_hx_bytes.b[3] << 24)))
-                    bytesRemaining = ((v | -2147483648) if ((((v & -2147483648)) != 0)) else v)
-                    haxe_Log.trace("bytesRemaining",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 224, 'className': "HaxeServerStdio", 'methodName': "readServerMessage", 'customParams': [bytesRemaining]}))
-                    messageBuffer.prepare(bytesRemaining)
-                    messageChunk = _hx_bytes.sub(4,(_hx_bytes.length - 4))
-                else:
-                    messageChunk = _hx_bytes
-                bytesRemaining = (bytesRemaining - messageChunk.length)
-                _g = messageChunk.b[0]
-                _g1 = _g
-                if (_g1 == 1):
-                    logLine = StringTools.replace(HxString.substr(messageChunk.toString(),1,None),"\x01","\n")
-                    logLine = HxString.substr(logLine,0,(len(logLine) - 1))
-                    if (handleLog is not None):
-                        handleLog(logLine)
-                    else:
-                        print(("Haxe > " + HxOverrides.stringOrNull(StringTools.rtrim(logLine))))
-                elif (_g1 == 2):
-                    hasError = True
-                else:
-                    messageBuffer.writeFullBytes(messageChunk,0,messageChunk.length)
-                if (bytesRemaining == 0):
-                    break
-                if (bytesRemaining < 0):
-                    messageEncodingError = True
-                    raise _HxException("Haxe server message contained more bytes than expected")
-        except Exception as _hx_e:
-            _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
-            if isinstance(_hx_e1, python_lib_Empty):
-                e = _hx_e1
-                messageEncodingError = True
-                haxe_Log.trace((("Queue was empty but there are " + Std.string(bytesRemaining)) + " bytes unaccounted for"),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 263, 'className': "HaxeServerStdio", 'methodName': "readServerMessage"}))
-                err = self.process.stderr
-                haxe_Log.trace("Flushing",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 266, 'className': "HaxeServerStdio", 'methodName': "readServerMessage"}))
-                err.flush()
-                haxe_Log.trace("Flushed",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 268, 'className': "HaxeServerStdio", 'methodName': "readServerMessage"}))
-                haxe_Log.trace("Reading remainder",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 270, 'className': "HaxeServerStdio", 'methodName': "readServerMessage"}))
-                remainder = err.readline(bytesRemaining)
-                haxe_Log.trace("Remainder",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 272, 'className': "HaxeServerStdio", 'methodName': "readServerMessage", 'customParams': [remainder]}))
-            else:
-                raise _hx_e
-        messageBytes = messageBuffer.getBytes()
-        return _hx_AnonObject({'output': messageBytes.toString(), 'hasError': hasError})
-
     @staticmethod
-    def createIOQueue(stdio):
-        def _hx_local_0(out,queue):
-            line = None
+    def createServerMessageQueue(pipe):
+        def _hx_local_1(pipe1,queue):
+            bytesRemaining = 0
             while True:
-                line = out.readline()
-                if (not ((len(line) > 0))):
+                if (bytesRemaining <= 0):
+                    lengthHeader = haxe_io_Bytes.ofData(pipe1.read(4))
+                    if ((lengthHeader is None) or ((lengthHeader.length != 4))):
+                        break
+                    v = (((lengthHeader.b[0] | ((lengthHeader.b[1] << 8))) | ((lengthHeader.b[2] << 16))) | ((lengthHeader.b[3] << 24)))
+                    bytesRemaining = ((v | -2147483648) if ((((v & -2147483648)) != 0)) else v)
+                messageBytes = haxe_io_Bytes.ofData(pipe1.read(bytesRemaining))
+                if ((messageBytes is None) or ((messageBytes.length != bytesRemaining))):
                     break
-                queue.put(line)
-            haxe_Log.trace("EQ closed",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 292, 'className': "HaxeServerStdio", 'methodName': "createIOQueue"}))
-            out.close()
-        enqueueLines = _hx_local_0
+                bytesRemaining = (bytesRemaining - messageBytes.length)
+                if (bytesRemaining == 0):
+                    queue.put(messageBytes)
+                else:
+                    raise _HxException("Unexpected number of bytes return from pipe")
+            pipe1.close()
+            haxe_Log.trace("MessageReaderThread closed",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 253, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
+        enqueueMessages = _hx_local_1
         queue1 = python_lib_Queue()
-        lineReaderThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': enqueueLines, 'args': tuple([stdio, queue1]), 'daemon': True})))
-        lineReaderThread.start()
+        messageReaderThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': enqueueMessages, 'args': tuple([pipe, queue1]), 'daemon': True})))
+        messageReaderThread.start()
         return queue1
 
 
@@ -561,7 +535,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
         else:
             raise _HxException("Not yet supported")
         filePath = self.view.file_name()
-        haxeServer.display(hxml,self.view.file_name(),(locations[0] if 0 < len(locations) else None),"toplevel",viewContent)
+        haxeServer.display(hxml,self.view.file_name(),(locations[0] if 0 < len(locations) else None),None,viewContent)
         return None
 
     @staticmethod
@@ -913,7 +887,7 @@ class haxe_io_Bytes:
     _hx_class_name = "haxe.io.Bytes"
     __slots__ = ("length", "b")
     _hx_fields = ["length", "b"]
-    _hx_methods = ["blit", "sub", "getString", "toString"]
+    _hx_methods = ["blit", "getString", "toString"]
     _hx_statics = ["alloc", "ofString", "ofData"]
 
     def __init__(self,length,b):
@@ -924,11 +898,6 @@ class haxe_io_Bytes:
         if (((((pos < 0) or ((srcpos < 0))) or ((_hx_len < 0))) or (((pos + _hx_len) > self.length))) or (((srcpos + _hx_len) > src.length))):
             raise _HxException(haxe_io_Error.OutsideBounds)
         self.b[pos:pos+_hx_len] = src.b[srcpos:srcpos+_hx_len]
-
-    def sub(self,pos,_hx_len):
-        if (((pos < 0) or ((_hx_len < 0))) or (((pos + _hx_len) > self.length))):
-            raise _HxException(haxe_io_Error.OutsideBounds)
-        return haxe_io_Bytes(_hx_len,self.b[pos:(pos + _hx_len)])
 
     def getString(self,pos,_hx_len):
         if (((pos < 0) or ((_hx_len < 0))) or (((pos + _hx_len) > self.length))):
@@ -969,78 +938,6 @@ class haxe_io_BytesBuffer:
         return _hx_bytes
 
 
-
-class haxe_io_Output:
-    _hx_class_name = "haxe.io.Output"
-    __slots__ = ("bigEndian",)
-    _hx_fields = ["bigEndian"]
-    _hx_methods = ["writeByte", "writeBytes", "set_bigEndian", "writeFullBytes", "prepare"]
-
-    def writeByte(self,c):
-        raise _HxException("Not implemented")
-
-    def writeBytes(self,s,pos,_hx_len):
-        if (((pos < 0) or ((_hx_len < 0))) or (((pos + _hx_len) > s.length))):
-            raise _HxException(haxe_io_Error.OutsideBounds)
-        b = s.b
-        k = _hx_len
-        while (k > 0):
-            self.writeByte(b[pos])
-            pos = (pos + 1)
-            k = (k - 1)
-        return _hx_len
-
-    def set_bigEndian(self,b):
-        self.bigEndian = b
-        return b
-
-    def writeFullBytes(self,s,pos,_hx_len):
-        while (_hx_len > 0):
-            k = self.writeBytes(s,pos,_hx_len)
-            pos = (pos + k)
-            _hx_len = (_hx_len - k)
-
-    def prepare(self,nbytes):
-        pass
-
-
-
-class haxe_io_BytesOutput(haxe_io_Output):
-    _hx_class_name = "haxe.io.BytesOutput"
-    __slots__ = ("b",)
-    _hx_fields = ["b"]
-    _hx_methods = ["writeByte", "writeBytes", "getBytes"]
-    _hx_statics = []
-    _hx_super = haxe_io_Output
-
-
-    def __init__(self):
-        self.b = haxe_io_BytesBuffer()
-        self.set_bigEndian(False)
-
-    def writeByte(self,c):
-        _this = self.b.b
-        _this.append(c)
-
-    def writeBytes(self,buf,pos,_hx_len):
-        _this = self.b
-        if (((pos < 0) or ((_hx_len < 0))) or (((pos + _hx_len) > buf.length))):
-            raise _HxException(haxe_io_Error.OutsideBounds)
-        b1 = _this.b
-        b2 = buf.b
-        _g1 = pos
-        _g = (pos + _hx_len)
-        while (_g1 < _g):
-            i = _g1
-            _g1 = (_g1 + 1)
-            _this1 = _this.b
-            _this1.append(b2[i])
-        return _hx_len
-
-    def getBytes(self):
-        return self.b.getBytes()
-
-
 class haxe_io_Error(Enum):
     __slots__ = ()
     _hx_class_name = "haxe.io.Error"
@@ -1055,6 +952,18 @@ haxe_io_Error.OutsideBounds = haxe_io_Error("OutsideBounds", 2, list())
 
 class haxe_io_Input:
     _hx_class_name = "haxe.io.Input"
+    __slots__ = ("bigEndian",)
+    _hx_fields = ["bigEndian"]
+    _hx_methods = ["set_bigEndian"]
+
+    def set_bigEndian(self,b):
+        self.bigEndian = b
+        return b
+
+
+
+class haxe_io_Output:
+    _hx_class_name = "haxe.io.Output"
     __slots__ = ("bigEndian",)
     _hx_fields = ["bigEndian"]
     _hx_methods = ["set_bigEndian"]
@@ -1946,7 +1855,7 @@ class python_io_NativeOutput(haxe_io_Output):
     _hx_class_name = "python.io.NativeOutput"
     __slots__ = ("stream",)
     _hx_fields = ["stream"]
-    _hx_methods = ["prepare"]
+    _hx_methods = []
     _hx_statics = []
     _hx_super = haxe_io_Output
 
@@ -1958,16 +1867,13 @@ class python_io_NativeOutput(haxe_io_Output):
         if (not stream.writable()):
             raise _HxException("Read only stream")
 
-    def prepare(self,nbytes):
-        self.stream.truncate(nbytes)
-
 
 
 class python_io_NativeBytesOutput(python_io_NativeOutput):
     _hx_class_name = "python.io.NativeBytesOutput"
     __slots__ = ()
     _hx_fields = []
-    _hx_methods = ["prepare", "writeByte"]
+    _hx_methods = []
     _hx_statics = []
     _hx_super = python_io_NativeOutput
 
@@ -1975,18 +1881,11 @@ class python_io_NativeBytesOutput(python_io_NativeOutput):
     def __init__(self,stream):
         super().__init__(stream)
 
-    def prepare(self,nbytes):
-        self.stream.truncate(nbytes)
-
-    def writeByte(self,c):
-        self.stream.write(bytearray([c]))
-
-
 
 class python_io_IOutput:
     _hx_class_name = "python.io.IOutput"
     __slots__ = ()
-    _hx_methods = ["set_bigEndian", "writeByte", "writeBytes", "writeFullBytes", "prepare"]
+    _hx_methods = ["set_bigEndian"]
 
 
 class python_io_IFileOutput:
@@ -2037,7 +1936,7 @@ class python_io_NativeTextOutput(python_io_NativeOutput):
     _hx_class_name = "python.io.NativeTextOutput"
     __slots__ = ()
     _hx_fields = []
-    _hx_methods = ["writeByte"]
+    _hx_methods = []
     _hx_statics = []
     _hx_super = python_io_NativeOutput
 
@@ -2046,10 +1945,6 @@ class python_io_NativeTextOutput(python_io_NativeOutput):
         super().__init__(stream)
         if (not stream.writable()):
             raise _HxException("Read only stream")
-
-    def writeByte(self,c):
-        self.stream.write("".join(map(chr,[c])))
-
 
 
 class python_io_FileTextOutput(python_io_NativeTextOutput):
@@ -2113,7 +2008,7 @@ class sys_io_FileOutput(haxe_io_Output):
     _hx_class_name = "sys.io.FileOutput"
     __slots__ = ("impl",)
     _hx_fields = ["impl"]
-    _hx_methods = ["set_bigEndian", "writeByte", "writeBytes", "writeFullBytes", "prepare"]
+    _hx_methods = ["set_bigEndian"]
     _hx_statics = []
     _hx_super = haxe_io_Output
 
@@ -2123,18 +2018,6 @@ class sys_io_FileOutput(haxe_io_Output):
 
     def set_bigEndian(self,b):
         return self.impl.set_bigEndian(b)
-
-    def writeByte(self,c):
-        self.impl.writeByte(c)
-
-    def writeBytes(self,s,pos,_hx_len):
-        return self.impl.writeBytes(s,pos,_hx_len)
-
-    def writeFullBytes(self,s,pos,_hx_len):
-        self.impl.writeFullBytes(s,pos,_hx_len)
-
-    def prepare(self,nbytes):
-        self.impl.prepare(nbytes)
 
 
 Math.NEGATIVE_INFINITY = float("-inf")

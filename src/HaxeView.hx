@@ -35,7 +35,8 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var haxeServer = HaxeProject.getHaxeServerHandle(view, Stdio);
 
 		var filePath = view.file_name();
-		haxeServer.display(hxml, view.file_name(), locations[0], 'toplevel', viewContent);
+		haxeServer.display(hxml, view.file_name(), locations[0], null, viewContent);
+
 
 		//@! we should ensure we perform at least 1 full build before using autocomplete for cache performance
 	
