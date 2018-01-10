@@ -1,4 +1,6 @@
 # Todo
+- Faster completion:
+	https://github.com/vshaxe/vshaxe/wiki/Completion-Cache
 - What happens if a view changes syntax so it's no longer a haxe file?
 	- Use scope rather than extension
 - Function argument completion (see TypeScript plugin for good implementation)
