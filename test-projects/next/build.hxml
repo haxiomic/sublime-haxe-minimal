@@ -1,0 +1,16 @@
+-main ProjectA
+-js _built/_project-a.js
+-version
+--no-output
+
+--next
+
+-main ProjectB
+-js _built/_project-b.js
+--no-output
+
+--next
+
+-main ProjectC
+-js _built/_project-c.js
+--no-output
