@@ -7,14 +7,13 @@
 
 class HaxeBuildCommand extends VariantsWindowCommand {
 
-	var buildInProgress = false;
 	var panel: sublime.View;
 	var panelLock = new python.lib.threading.Lock();
 
 	override function is_enabled(?args:python.Dict<String, Any>):Bool {
 		if (args != null && args.get('kill') == true) {
 			// return true if process is running - this will enable the cancel command
-			return buildInProgress;
+			return false;
 		}
 		if (args != null && args.get('run_after_build') == true) {
 			// return true if process is running - this will enable the cancel command
@@ -73,11 +72,27 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 				hxmlContent += sys.io.File.getContent(hxmlPath);
 		}
 
-		buildInProgress = true;
+		appendPanel('Build in progress\n');
 
 		var haxeServer = HaxePlugin.getHaxeServerHandle(view);
-		var result = haxeServer.build(hxmlContent.split('\n'));
-		trace('Result: "$result"');
+		haxeServer.buildAsync(
+			(hxmlContent).split('\n'),
+			function(result){
+				if (result.output.length > 0) {
+					appendPanel(result.output);
+					showResultsPanel();
+				} else {
+					appendPanel('\nBuild complete\n');
+					showResultsPanel();
+				}
+				trace('Results', result);
+			},
+			function(log){
+				appendPanel(log);
+				showResultsPanel();
+				untyped print('haxe >> $log');
+			}
+		);
 	}
 
 	override function description(?args:python.Dict<String, Any>):String {
@@ -110,7 +125,9 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 		panelLock.acquire();
 		{
 			// creating the panel implicitly clears any previous contents
-			panel = window.create_output_panel('exec');
+			if (panel == null) {
+				panel = window.create_output_panel('exec');
+			}
 			var args = new python.Dict<String, Any>();
 			args.set('characters', text);
 			panel.run_command('append', args);

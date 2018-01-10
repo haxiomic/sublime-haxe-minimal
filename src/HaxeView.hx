@@ -25,6 +25,11 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var viewFilePath = view.file_name();
 		var hxmlPath = HaxeProject.findAssociatedHxmlPath(view);
 
+		//@! we should ensure we perform at least 1 full build before using autocomplete for cache performance
+		// -D use-rtti-doc "Allows access to documentation during compilation"
+		// -D display-details "each field additionally has a k attribute which can either be var or method. This allows distinguishing method fields from variable fields that have a function type."
+		// -D display-stdin "Read the contents of a file specified in --display from standard input"
+
 		if (viewFilePath != null && hxmlPath != null) {
 			// var tempFilePath = copyContentToTempFile(Path.directory(viewFilePath));
 

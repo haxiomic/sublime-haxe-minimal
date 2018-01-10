@@ -117,8 +117,8 @@ class EReg:
 
 class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
     _hx_class_name = "HaxeBuildCommand"
-    __slots__ = ("buildInProgress", "panel", "panelLock")
-    _hx_fields = ["buildInProgress", "panel", "panelLock"]
+    __slots__ = ("panel", "panelLock")
+    _hx_fields = ["panel", "panelLock"]
     _hx_methods = ["is_enabled", "is_visible", "run", "description", "clearBuildStatus", "setBuildStatus", "clearResultsPanel", "appendPanel", "showResultsPanel", "hideResultsPanel"]
     _hx_statics = []
     _hx_super = _HaxeBuildCommand_VariantsWindowCommand
@@ -127,12 +127,11 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
     def __init__(self,window):
         self.panel = None
         self.panelLock = python_lib_threading_Lock()
-        self.buildInProgress = False
         super().__init__(window)
 
     def is_enabled(self,args = None):
         if ((args is not None) and ((args.get("kill") == True))):
-            return self.buildInProgress
+            return False
         if ((args is not None) and ((args.get("run_after_build") == True))):
             return False
         return True
@@ -143,8 +142,9 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
     def run(self,args = None,run_after_build = False):
         if (run_after_build is None):
             run_after_build = False
+        _gthis = self
         if ((args is not None) and ((args.get("kill") == True))):
-            haxe_Log.trace("@! todo: implement cancel build",_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 32, 'className': "HaxeBuildCommand", 'methodName': "run"}))
+            haxe_Log.trace("@! todo: implement cancel build",_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 31, 'className': "HaxeBuildCommand", 'methodName': "run"}))
             return
         view = self.window.active_view()
         self.clearBuildStatus(view)
@@ -172,10 +172,22 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
             hxmlContent = (("null" if hxmlContent is None else hxmlContent) + HxOverrides.stringOrNull(sys_io_File.getContent(hxmlPath1)))
         else:
             pass
-        self.buildInProgress = True
+        self.appendPanel("Build in progress\n")
         haxeServer = HaxePlugin.getHaxeServerHandle(view)
-        result = haxeServer.execute(hxmlContent.split("\n"))
-        haxe_Log.trace((("Result: \"" + ("null" if result is None else result)) + "\""),_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 80, 'className': "HaxeBuildCommand", 'methodName': "run"}))
+        _this = hxmlContent
+        def _hx_local_4(result):
+            if (len(result.output) > 0):
+                _gthis.appendPanel(result.output)
+                _gthis.showResultsPanel()
+            else:
+                _gthis.appendPanel("\nBuild complete\n")
+                _gthis.showResultsPanel()
+            haxe_Log.trace("Results",_hx_AnonObject({'fileName': "HaxeBuildCommand.hx", 'lineNumber': 88, 'className': "HaxeBuildCommand", 'methodName': "run", 'customParams': [result]}))
+        def _hx_local_5(log):
+            _gthis.appendPanel(log)
+            _gthis.showResultsPanel()
+            print(("haxe >> " + ("null" if log is None else log)))
+        haxeServer.buildAsync(_this.split("\n"),_hx_local_4,_hx_local_5)
 
     def description(self,args = None):
         if ((args is not None) and ((args.get("kill") == True))):
@@ -197,7 +209,8 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
 
     def appendPanel(self,text):
         self.panelLock.acquire()
-        self.panel = self.window.create_output_panel("exec")
+        if (self.panel is None):
+            self.panel = self.window.create_output_panel("exec")
         args = dict()
         args["characters"] = text
         self.panel.run_command("append",args)
@@ -284,18 +297,26 @@ class HaxeProject:
 
 class HaxeServer:
     _hx_class_name = "HaxeServer"
-    __slots__ = ("process", "errQueue")
-    _hx_fields = ["process", "errQueue"]
-    _hx_methods = ["execute", "terminate"]
+    __slots__ = ("processUserArgs", "process", "processWriteLock", "errQueue", "haxeVersionString")
+    _hx_fields = ["processUserArgs", "process", "processWriteLock", "errQueue", "haxeVersionString"]
+    _hx_methods = ["start", "restart", "terminate", "buildAsync", "build", "execute"]
     _hx_statics = ["readServerMessage", "createIOQueue"]
 
     def __init__(self,args = None):
+        self.haxeVersionString = None
         self.errQueue = None
-        args = ([] if ((args is None)) else args)
+        self.process = None
+        self.processWriteLock = python_lib_threading_Lock()
+        self.processUserArgs = list()
+        if (args is not None):
+            self.processUserArgs = args
+        self.start(self.processUserArgs)
+
+    def start(self,args):
         sys = python_lib_Sys
         moduleNames = Reflect.field(sys,"builtin_module_names")
         isPosix = (python_internal_ArrayImpl.indexOf(list(moduleNames),"posix",None) != -1)
-        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 22, 'className': "HaxeServer", 'methodName': "new"}))
+        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 38, 'className': "HaxeServer", 'methodName': "start"}))
         args1 = (["haxe", "--wait", "stdio"] + args)
         o = _hx_AnonObject({'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE, 'stdin': python_lib_Subprocess.PIPE, 'close_fds': isPosix})
         Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
@@ -317,10 +338,42 @@ class HaxeServer:
             errorMessage = self.process.stderr.readall().decode("utf-8")
             raise _HxException(((("Haxe server failed to start: (" + Std.string(exitCode)) + ") ") + ("null" if errorMessage is None else errorMessage)))
         self.errQueue = HaxeServer.createIOQueue(self.process.stderr)
+        self.haxeVersionString = self.execute(["-version"],3).output
 
-    def execute(self,hxmlLines):
+    def restart(self):
+        self.terminate()
+        self.start(self.processUserArgs)
+
+    def terminate(self):
+        if (self.process is not None):
+            self.process.terminate()
+        self.process = None
+        self.errQueue = None
+        self.haxeVersionString = None
+
+    def buildAsync(self,hxmlLines,onComplete,handleLog = None):
+        _gthis = self
+        def _hx_local_0():
+            buildCallback1 = _gthis.build(hxmlLines,handleLog)
+            onComplete(buildCallback1)
+        buildCallback = _hx_local_0
+        buildThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': buildCallback})))
+        buildThread.start()
+
+    def build(self,hxmlLines,handleLog = None):
+        timeout_s = 120
+        hxmlLines = (hxmlLines + ["--next", "-version"])
+        result = self.execute(hxmlLines,timeout_s,handleLog)
+        _this = result.output
+        _hx_str = self.haxeVersionString
+        versionStart = _this.rfind(_hx_str, 0, len(_this))
+        versionEnd = (versionStart + len(self.haxeVersionString))
+        result.output = (HxOverrides.stringOrNull(HxString.substring(result.output,0,versionStart)) + HxOverrides.stringOrNull(HxString.substring(result.output,versionEnd,None)))
+        return result
+
+    def execute(self,hxmlLines,timeout_s = None,handleLog = None):
         buffer = haxe_io_BytesBuffer()
-        src = haxe_io_Bytes.ofString(("\n" + HxOverrides.stringOrNull("\n".join([python_Boot.toString1(x1,'') for x1 in hxmlLines]))))
+        src = haxe_io_Bytes.ofString((("\n" + HxOverrides.stringOrNull("\n".join([python_Boot.toString1(x1,'') for x1 in hxmlLines]))) + "\n"))
         b1 = buffer.b
         b2 = src.b
         _g1 = 0
@@ -330,16 +383,6 @@ class HaxeServer:
             _g1 = (_g1 + 1)
             _this = buffer.b
             _this.append(b2[i])
-        src1 = haxe_io_Bytes.ofString("\n--next\n-version")
-        b11 = buffer.b
-        b21 = src1.b
-        _g11 = 0
-        _g2 = src1.length
-        while (_g11 < _g2):
-            i1 = _g11
-            _g11 = (_g11 + 1)
-            _this1 = buffer.b
-            _this1.append(b21[i1])
         _hx_bytes = buffer.getBytes()
         length = _hx_bytes.length
         payloadBytes = haxe_io_Bytes.alloc((4 + length))
@@ -348,19 +391,17 @@ class HaxeServer:
         payloadBytes.b[2] = ((length >> 16) & 255)
         payloadBytes.b[3] = (HxOverrides.rshift(length, 24) & 255)
         payloadBytes.blit(4,_hx_bytes,0,length)
-        haxe_Log.trace("Writing buffer: ",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 58, 'className': "HaxeServer", 'methodName': "execute", 'customParams': [payloadBytes.b]}))
+        self.processWriteLock.acquire()
+        haxe_Log.trace("Writing buffer: ",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 127, 'className': "HaxeServer", 'methodName': "execute", 'customParams': [payloadBytes.b]}))
         self.process.stdin.write(payloadBytes.b)
-        timeout_s = 1
-        return HaxeServer.readServerMessage(self.errQueue,timeout_s)
-
-    def terminate(self):
-        self.process.terminate()
-        self.process = None
-        self.errQueue = None
+        result = HaxeServer.readServerMessage(self.errQueue,timeout_s,handleLog)
+        self.processWriteLock.release()
+        return result
 
     @staticmethod
-    def readServerMessage(ioQueue,timeout_s):
-        message = ""
+    def readServerMessage(ioQueue,timeout_s = None,handleLog = None):
+        output = ""
+        hasError = False
         try:
             bytesRemaining = 0
             while True:
@@ -372,12 +413,23 @@ class HaxeServer:
                         raise _HxException("Haxe server replied with an invalid message")
                     v = (((_hx_bytes.b[0] | ((_hx_bytes.b[1] << 8))) | ((_hx_bytes.b[2] << 16))) | ((_hx_bytes.b[3] << 24)))
                     bytesRemaining = ((v | -2147483648) if ((((v & -2147483648)) != 0)) else v)
-                    haxe_Log.trace(("bytesRemaining: " + Std.string(bytesRemaining)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 90, 'className': "HaxeServer", 'methodName': "readServerMessage"}))
                     messageBytes = _hx_bytes.sub(4,(_hx_bytes.length - 4))
                 else:
                     messageBytes = _hx_bytes
-                message = (("null" if message is None else message) + HxOverrides.stringOrNull(messageBytes.toString()))
                 bytesRemaining = (bytesRemaining - messageBytes.length)
+                _g = messageBytes.b[0]
+                _g1 = _g
+                if (_g1 == 1):
+                    logLine = StringTools.replace(HxString.substr(messageBytes.toString(),1,None),"\x01","\n")
+                    logLine = HxString.substr(logLine,0,(len(logLine) - 1))
+                    if (handleLog is not None):
+                        handleLog(logLine)
+                    else:
+                        print(("Haxe > " + HxOverrides.stringOrNull(StringTools.rtrim(logLine))))
+                elif (_g1 == 2):
+                    hasError = True
+                else:
+                    output = (("null" if output is None else output) + HxOverrides.stringOrNull(messageBytes.toString()))
                 if (bytesRemaining == 0):
                     break
                 if (bytesRemaining < 0):
@@ -389,21 +441,18 @@ class HaxeServer:
                 raise _HxException("Haxe server message queue was empty - either haxe took too long to generate the message or the message data was shorter than the header specified")
             else:
                 raise _hx_e
-        return message
+        return _hx_AnonObject({'output': output, 'hasError': hasError})
 
     @staticmethod
     def createIOQueue(stdio):
         def _hx_local_0(out,queue):
-            haxe_Log.trace((("Enqueue thread started (" + Std.string(out)) + ")"),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 116, 'className': "HaxeServer", 'methodName': "createIOQueue"}))
             line = None
             while True:
                 line = out.readline()
                 if (not ((len(line) > 0))):
                     break
-                haxe_Log.trace((("Enqueue thread line (" + Std.string(out)) + "):"),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 119, 'className': "HaxeServer", 'methodName': "createIOQueue", 'customParams': [line]}))
                 queue.put(line)
             out.close()
-            haxe_Log.trace((("Enqueue thread ended (" + Std.string(out)) + ")"),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 123, 'className': "HaxeServer", 'methodName': "createIOQueue"}))
         enqueueLines = _hx_local_0
         queue1 = python_lib_Queue()
         lineReaderThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': enqueueLines, 'args': tuple([stdio, queue1]), 'daemon': True})))
@@ -485,6 +534,38 @@ class StringBuf:
     def __init__(self):
         self.b = python_lib_io_StringIO()
 
+
+
+class StringTools:
+    _hx_class_name = "StringTools"
+    __slots__ = ()
+    _hx_statics = ["isSpace", "rtrim", "replace"]
+
+    @staticmethod
+    def isSpace(s,pos):
+        if (((len(s) == 0) or ((pos < 0))) or ((pos >= len(s)))):
+            return False
+        c = HxString.charCodeAt(s,pos)
+        if (not (((c > 8) and ((c < 14))))):
+            return (c == 32)
+        else:
+            return True
+
+    @staticmethod
+    def rtrim(s):
+        l = len(s)
+        r = 0
+        while ((r < l) and StringTools.isSpace(s,((l - r) - 1))):
+            r = (r + 1)
+        if (r > 0):
+            return HxString.substr(s,0,(l - r))
+        else:
+            return s
+
+    @staticmethod
+    def replace(s,sub,by):
+        _this = (list(s) if ((sub == "")) else s.split(sub))
+        return by.join([python_Boot.toString1(x1,'') for x1 in _this])
 
 
 class sys_FileSystem:
