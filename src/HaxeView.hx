@@ -4,6 +4,8 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 
 	// var tempFileHandle: FileIO;
 
+	static inline var HAXE_STATUS = 'haxe_status';
+
 	override function on_modified() {
 	}
 
@@ -21,15 +23,24 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		// there may be no hxml file to find, in which case, use some sensible default build arguments
 	}
 
-	override function on_query_completions(prefix:String, locations:Array<Int>):Null<haxe.extern.EitherType<Array<Any>, python.Tuple<Any>>>{
-		var viewFilePath = view.file_name();
-		var hxmlPath = HaxeProject.findAssociatedHxmlPath(view);
+	override function on_query_completions(prefix:String, locations:Array<Int>):Null<haxe.extern.EitherType<Array<Any>, python.Tuple<Any>>> {
+		var hxml = HaxeProject.getHxmlForView(view);
+
+		if (hxml == null) {
+			view.set_status(HAXE_STATUS, 'Could not find hxml for autocomplete');
+			return null;
+		}
+
+		var viewContent = view.substr(new sublime.Region(0, view.size()));
+		var haxeServer = HaxeProject.getHaxeServerHandle(view, Stdio);
+
+		var filePath = view.file_name();
+		haxeServer.display(hxml, view.file_name(), locations[0], 'toplevel', viewContent);
 
 		//@! we should ensure we perform at least 1 full build before using autocomplete for cache performance
-		// -D use-rtti-doc "Allows access to documentation during compilation"
-		// -D display-details "each field additionally has a k attribute which can either be var or method. This allows distinguishing method fields from variable fields that have a function type."
-		// -D display-stdin "Read the contents of a file specified in --display from standard input"
-
+	
+			/*
+		
 		if (viewFilePath != null && hxmlPath != null) {
 			// var tempFilePath = copyContentToTempFile(Path.directory(viewFilePath));
 
@@ -38,7 +49,6 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			var cwd = Path.directory(hxmlPath);
 
 			var displayMode = '@toplevel';
-			/*
 			Compiler.buildOnServer(
 				[
 					hxmlPath,
@@ -55,8 +65,8 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 					trace('on_query_completions $code $msg');
 				}
 			);
-			*/
 		}
+			*/
 
 		return null;
 	}

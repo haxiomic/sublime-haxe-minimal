@@ -44,5 +44,4 @@
 - Python missing fdopen
 - https://api.haxe.org/python/lib/io/IOBase.html seek whence should be optional
 - https://api.haxe.org/python/lib/io/IOBase.html truncate size should be optional
-- Python BytesBuffer, bytesBuffer.length fails, as does messageBuffer.add(buffer.getBytes());
-	- Seems to fail when calling bytesBuffer.getBytes() twice
+- (Maybe deliberate) display-details missing from haxe --help-defines 

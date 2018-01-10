@@ -4,8 +4,8 @@
 	// "cancel": {"kill": true},
 	"variants": [
 		{
-			"name": "Run",
-			"run_after_build": true
+			"name": "Interpret",
+			"interp_after_build": true
 		}
 	]
 }

@@ -4,4 +4,4 @@ class Main {
 		trace('Hello HXCPP');
 	}
 
-}
+} 

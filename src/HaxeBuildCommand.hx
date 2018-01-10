@@ -2,7 +2,7 @@
 // This class redefines run to include the extra arguments
 @:pythonImport("sublime_plugin", "WindowCommand") private extern class VariantsWindowCommand extends sublime_plugin.WindowCommand {
 	override function new(window:sublime.Window);
-	override function run(?args:python.Dict<String, Any>, ?run_after_build: Bool):Void;
+	override function run(?args:python.Dict<String, Any>, ?interp_after_build: Bool): Void;
 }
 
 class HaxeBuildCommand extends VariantsWindowCommand {
@@ -10,13 +10,15 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 	var panel: sublime.View;
 	var panelLock = new python.lib.threading.Lock();
 
+	var buildHandle = null;
+
 	override function is_enabled(?args:python.Dict<String, Any>):Bool {
 		if (args != null && args.get('kill') == true) {
 			// return true if process is running - this will enable the cancel command
 			return false;
 		}
-		if (args != null && args.get('run_after_build') == true) {
-			// return true if process is running - this will enable the cancel command
+		if (args != null && args.get('interp_after_build') == true) {
+			// should add --interp argument
 			return false;
 		}
 		return true;
@@ -26,7 +28,7 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 		return is_enabled(args);
 	}
 
-	override function run(?args:python.Dict<String, Any>, ?run_after_build: Bool = false):Void {
+	override function run(?args:python.Dict<String, Any>, ?interp_after_build: Bool = false):Void {
 		if (args != null && args.get('kill') == true) {
 			trace('@! todo: implement cancel build');
 			return;
@@ -41,7 +43,7 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 		clearResultsPanel();
 
 		// determine compiler args
-		var hxmlContent = '';
+		var hxmlContent: String = null;
 		switch (view.settings().get('syntax'): String) {
 			case 'Packages/Haxe Minimal/syntax/hxml.tmLanguage':
 				var hxmlPath = view.file_name();
@@ -54,29 +56,27 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 				}
 
 				var cwd = Path.directory(hxmlPath);
-				hxmlContent += '--cwd "$cwd"\n';
-				hxmlContent += sys.io.File.getContent(hxmlPath);
+				hxmlContent = '--cwd "$cwd"\n' + sys.io.File.getContent(hxmlPath);
 
 			case 'Packages/Haxe Minimal/syntax/haxe.tmLanguage':
-				var hxmlPath = HaxeProject.findAssociatedHxmlPath(view);
+				hxmlContent = HaxeProject.getHxmlForView(view);
+		}
 
-				if (hxmlPath == null) {
-					// could not build because the file hasn't been saved
-					appendPanel('A hxml file to build this file could not be found');
-					showResultsPanel();
-					return;
-				}
-
-				var cwd = Path.directory(hxmlPath);
-				hxmlContent += '--cwd "$cwd"\n';
-				hxmlContent += sys.io.File.getContent(hxmlPath);
+		if (hxmlContent == null) {
+			// could not build because the file hasn't been saved
+			appendPanel('A hxml file to build this file could not be found');
+			showResultsPanel();
+			return;
 		}
 
 		appendPanel('Build in progress\n');
 
-		var haxeServer = HaxePlugin.getHaxeServerHandle(view);
-		haxeServer.buildAsync(
-			(hxmlContent).split('\n'),
+		// @! The build command should not be using haxe server in --wait stdio mode because it means we only get compile output at the end
+		// @! This is a big issue for C++ builds 
+		// @! Should use server in normal mode to display messages as they are generated (we don't need tempfiles because build triggers save)
+		var haxeServer = HaxeProject.getHaxeServerHandle(view, Stdio);
+		buildHandle = haxeServer.buildAsync(
+			hxmlContent,
 			function(result){
 				if (result.output.length > 0) {
 					appendPanel(result.output);
@@ -86,11 +86,12 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 					showResultsPanel();
 				}
 				trace('Results', result);
+
+				buildHandle = null;
 			},
 			function(log){
 				appendPanel(log);
 				showResultsPanel();
-				untyped print('haxe >> $log');
 			}
 		);
 	}
