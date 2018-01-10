@@ -42,7 +42,7 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 		clearResultsPanel();
 
 		// determine compiler args
-		var args = [];
+		var hxmlContent = '';
 		switch (view.settings().get('syntax'): String) {
 			case 'Packages/Haxe Minimal/syntax/hxml.tmLanguage':
 				var hxmlPath = view.file_name();
@@ -55,7 +55,8 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 				}
 
 				var cwd = Path.directory(hxmlPath);
-				args = ['--cwd', cwd, hxmlPath];	
+				hxmlContent += '--cwd "$cwd"\n';
+				hxmlContent += sys.io.File.getContent(hxmlPath);
 
 			case 'Packages/Haxe Minimal/syntax/haxe.tmLanguage':
 				var hxmlPath = HaxeProject.findAssociatedHxmlPath(view);
@@ -68,20 +69,15 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 				}
 
 				var cwd = Path.directory(hxmlPath);
-				args = ['--cwd', cwd, hxmlPath];
+				hxmlContent += '--cwd "$cwd"\n';
+				hxmlContent += sys.io.File.getContent(hxmlPath);
 		}
 
 		buildInProgress = true;
 
-		HaxeServer.start(
-			[],
-			function() {
-				trace('HaxeBuildCommand - Server Started!');
-			},
-			function(msg) {
-				trace('HaxeBuildCommand - Server failed to start: $msg');
-			}
-		);
+		var haxeServer = HaxePlugin.getHaxeServerHandle(view);
+		var result = haxeServer.build(hxmlContent.split('\n'));
+		trace('Result: "$result"');
 	}
 
 	override function description(?args:python.Dict<String, Any>):String {

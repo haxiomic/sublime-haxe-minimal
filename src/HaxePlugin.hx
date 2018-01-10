@@ -6,6 +6,16 @@ class HaxePlugin {
 
 	static public inline var id = 'haxe_minimal';
 
+	// may throw if the process fails to start
+	static var haxeServerHandle: HaxeServer = null;
+	static public function getHaxeServerHandle(view: sublime.View) {
+		if (haxeServerHandle == null) {
+			haxeServerHandle = new HaxeServer();
+		}
+
+		return haxeServerHandle;
+	}
+
 	static function main() {
 		// replace haxe.Log.trace so it only uses print()
 		// this is because sublime text has only partial stdout/stderr objects
