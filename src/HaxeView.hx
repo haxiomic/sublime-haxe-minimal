@@ -30,12 +30,14 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var location = locations[0];
 
 		var completionMode: HaxeServer.CompletionMode = Unset;
+		var fieldCompletion = false;
 
 		// if we're in the middle of typing out a field, we should step back to the .
 		var proceedingNonWordChar = viewContent.charAt(location - prefix.length - 1);
 		switch proceedingNonWordChar {
 			case '.':
 				completionMode = Unset; // used for field completion
+				fieldCompletion = true;
 				location -= prefix.length;
 			default:
 				completionMode = Toplevel;
@@ -93,7 +95,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 					switch kind {
 						case 'method':
 							// process for readability
-							var c = generateMethodCompletion(name, parseMethodTypeSignature(type));
+							var c = generateFunctionCompletion(name, parseFunctionSignature(type));
 							display = c.display;
 							info = c.info;
 							completion = c.completion;
@@ -120,9 +122,9 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 
 					// check if type represents a function, if so, process for readability
 					if (type != null) {
-						var t = parseMethodTypeSignature(type);
+						var t = parseFunctionSignature(type);
 						if (t.parameters.length > 0) {
-							var c = generateMethodCompletion(name, parseMethodTypeSignature(type));
+							var c = generateFunctionCompletion(name, parseFunctionSignature(type));
 							display = c.display;
 							info = c.info;
 							completion = c.completion;
@@ -163,7 +165,11 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			updateErrors(result.output);
 		}
 
-		return null;
+		return untyped python.Tuple.Tuple2.make(
+			[],
+			// inhibit all if it's in field completion mode
+			fieldCompletion ? (sublime.Sublime.INHIBIT_WORD_COMPLETIONS | sublime.Sublime.INHIBIT_EXPLICIT_COMPLETIONS) : 0
+		);
 	}
 
 	static function is_applicable(settings: sublime.Settings) {
@@ -176,23 +182,23 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		// @! todo display errors
 	}
 
-	static inline function generateMethodCompletion(name: String, method: {
+	static inline function generateFunctionCompletion(name: String, func: {
 		parameters: Array<{name: String, type: String}>,
 		returnType: String,
 	}) {
 		// remove first element if it is void
-		if (method.parameters[0].type == 'Void') {
-			method.parameters.shift();
+		if (func.parameters[0].type == 'Void') {
+			func.parameters.shift();
 		}
 
 		// format parameters
-		var parametersFormatted = method.parameters.map(function(p) return '${p.name}: ${p.type}').join(', ');
+		var parametersFormatted = func.parameters.map(function(p) return '${p.name}: ${p.type}').join(', ');
 
-		var info = method.returnType;
-		var display = method.parameters.length > 0 ? '$name( $parametersFormatted )' : '$name()';
+		var info = func.returnType;
+		var display = func.parameters.length > 0 ? '$name( $parametersFormatted )' : '$name()';
 
 		var i = 1;
-		var snippetArguments = method.parameters.map(
+		var snippetArguments = func.parameters.map(
 			function(p) {
 				var nameString = p.name != null ? ':${p.name}' : '';
 				return "${" + i++ + nameString + "}";
@@ -208,11 +214,16 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		}
 	}
 
-	static function parseMethodTypeSignature(type: String) {
+	/**
+		Split function into parameters and return type
+
+		This method does not validate the signature string
+	**/
+	static function parseFunctionSignature(signature: String) {
 		// Examples
 		// 	f : (Int -> ( Void -> String ) ) -> name : Int -> Array<String> -> Void
-		//  a : Array<Void->Void> -> Void
-		//  m : { x: String -> Int } -> Void
+		// 	a : Array<Void->Void> -> Void
+		// 	m : { x: String -> Int } -> Void
 
 		var parameters = new Array<{name: String, type: String}>();
 		var returnType: String = null;
@@ -220,7 +231,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var arrowMarker = String.fromCharCode(0x1);
 
 		// to make parsing easier, we replace the arrows with a single special character
-		type = type.replace('->', arrowMarker);
+		signature = signature.replace('->', arrowMarker);
 
 		// split by -> only when outside parentheses
 		var parts = new Array<String>();
@@ -228,8 +239,8 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var i = 0;
 		var buffer = '';
 		var level = 0;
-		for (i in 0...type.length) {
-			var c = type.charAt(i);
+		for (i in 0...signature.length) {
+			var c = signature.charAt(i);
 			switch c {
 				case '(', '<', '{': level++;
 				case ')', '>', '}': level--;

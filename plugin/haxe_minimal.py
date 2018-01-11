@@ -524,7 +524,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
     __slots__ = ()
     _hx_fields = []
     _hx_methods = ["on_modified", "on_close", "on_post_save_async", "on_query_completions"]
-    _hx_statics = ["HAXE_STATUS", "is_applicable", "applies_to_primary_view_only", "updateErrors", "generateMethodCompletion", "parseMethodTypeSignature", "isUpperCase", "clampString"]
+    _hx_statics = ["HAXE_STATUS", "is_applicable", "applies_to_primary_view_only", "updateErrors", "generateFunctionCompletion", "parseFunctionSignature", "isUpperCase", "clampString"]
     _hx_super = sublime_plugin_ViewEventListener
 
 
@@ -556,10 +556,12 @@ class HaxeView(sublime_plugin_ViewEventListener):
             raise _HxException("Not yet supported")
         location = (locations[0] if 0 < len(locations) else None)
         completionMode = None
+        fieldCompletion = False
         index = ((location - len(prefix)) - 1)
         proceedingNonWordChar = ("" if (((index < 0) or ((index >= len(viewContent))))) else viewContent[index])
         if (proceedingNonWordChar == "."):
             completionMode = None
+            fieldCompletion = True
             location = (location - len(prefix))
         else:
             completionMode = "toplevel"
@@ -598,22 +600,22 @@ class HaxeView(sublime_plugin_ViewEventListener):
                         info = ("class" if ((_hx_str.upper() == _hx_str)) else "module")
                     completion = name
                     if (kind == "method"):
-                        method = HaxeView.parseMethodTypeSignature(_hx_type)
-                        if ((method.parameters[0] if 0 < len(method.parameters) else None).type == "Void"):
-                            _this = method.parameters
+                        func = HaxeView.parseFunctionSignature(_hx_type)
+                        if ((func.parameters[0] if 0 < len(func.parameters) else None).type == "Void"):
+                            _this = func.parameters
                             if (len(_this) != 0):
                                 _this.pop(0)
-                        _this1 = method.parameters
+                        _this1 = func.parameters
                         def _hx_local_3():
                             def _hx_local_2(p):
                                 return ((("" + HxOverrides.stringOrNull(p.name)) + ": ") + HxOverrides.stringOrNull(p.type))
                             return _hx_local_2
                         _this2 = list(map(_hx_local_3(),_this1))
                         parametersFormatted = ", ".join([python_Boot.toString1(x1,'') for x1 in _this2])
-                        info1 = method.returnType
-                        display1 = ((((("" + ("null" if name is None else name)) + "( ") + ("null" if parametersFormatted is None else parametersFormatted)) + " )") if ((len(method.parameters) > 0)) else (("" + ("null" if name is None else name)) + "()"))
+                        info1 = func.returnType
+                        display1 = ((((("" + ("null" if name is None else name)) + "( ") + ("null" if parametersFormatted is None else parametersFormatted)) + " )") if ((len(func.parameters) > 0)) else (("" + ("null" if name is None else name)) + "()"))
                         i = [1]
-                        _this3 = method.parameters
+                        _this3 = func.parameters
                         def _hx_local_9(i1):
                             def _hx_local_4(p1):
                                 nameString = ((":" + HxOverrides.stringOrNull(p1.name)) if ((p1.name is not None)) else "")
@@ -649,24 +651,24 @@ class HaxeView(sublime_plugin_ViewEventListener):
                     info2 = (type1 if ((type1 is not None)) else kind1)
                     completion2 = name1
                     if (type1 is not None):
-                        t = HaxeView.parseMethodTypeSignature(type1)
+                        t = HaxeView.parseFunctionSignature(type1)
                         if (len(t.parameters) > 0):
-                            method1 = HaxeView.parseMethodTypeSignature(type1)
-                            if ((method1.parameters[0] if 0 < len(method1.parameters) else None).type == "Void"):
-                                _this4 = method1.parameters
+                            func1 = HaxeView.parseFunctionSignature(type1)
+                            if ((func1.parameters[0] if 0 < len(func1.parameters) else None).type == "Void"):
+                                _this4 = func1.parameters
                                 if (len(_this4) != 0):
                                     _this4.pop(0)
-                            _this5 = method1.parameters
+                            _this5 = func1.parameters
                             def _hx_local_12():
                                 def _hx_local_11(p2):
                                     return ((("" + HxOverrides.stringOrNull(p2.name)) + ": ") + HxOverrides.stringOrNull(p2.type))
                                 return _hx_local_11
                             _this6 = list(map(_hx_local_12(),_this5))
                             parametersFormatted1 = ", ".join([python_Boot.toString1(x1,'') for x1 in _this6])
-                            info3 = method1.returnType
-                            display3 = ((((("" + ("null" if name1 is None else name1)) + "( ") + ("null" if parametersFormatted1 is None else parametersFormatted1)) + " )") if ((len(method1.parameters) > 0)) else (("" + ("null" if name1 is None else name1)) + "()"))
+                            info3 = func1.returnType
+                            display3 = ((((("" + ("null" if name1 is None else name1)) + "( ") + ("null" if parametersFormatted1 is None else parametersFormatted1)) + " )") if ((len(func1.parameters) > 0)) else (("" + ("null" if name1 is None else name1)) + "()"))
                             i2 = [1]
-                            _this7 = method1.parameters
+                            _this7 = func1.parameters
                             def _hx_local_18(i3):
                                 def _hx_local_13(p3):
                                     nameString1 = ((":" + HxOverrides.stringOrNull(p3.name)) if ((p3.name is not None)) else "")
@@ -700,7 +702,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
         else:
             self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.output)))
             HaxeView.updateErrors(result.output)
-        return None
+        return ([], ((sublime_Sublime.INHIBIT_WORD_COMPLETIONS | sublime_Sublime.INHIBIT_EXPLICIT_COMPLETIONS) if fieldCompletion else 0))
 
     @staticmethod
     def is_applicable(settings):
@@ -715,43 +717,43 @@ class HaxeView(sublime_plugin_ViewEventListener):
         pass
 
     @staticmethod
-    def generateMethodCompletion(name,method):
-        if ((method.parameters[0] if 0 < len(method.parameters) else None).type == "Void"):
-            _this = method.parameters
+    def generateFunctionCompletion(name,func):
+        if ((func.parameters[0] if 0 < len(func.parameters) else None).type == "Void"):
+            _this = func.parameters
             if (len(_this) != 0):
                 _this.pop(0)
         def _hx_local_0(p):
             return ((("" + HxOverrides.stringOrNull(p.name)) + ": ") + HxOverrides.stringOrNull(p.type))
-        _this1 = list(map(_hx_local_0,method.parameters))
+        _this1 = list(map(_hx_local_0,func.parameters))
         parametersFormatted = ", ".join([python_Boot.toString1(x1,'') for x1 in _this1])
-        info = method.returnType
-        display = ((((("" + ("null" if name is None else name)) + "( ") + ("null" if parametersFormatted is None else parametersFormatted)) + " )") if ((len(method.parameters) > 0)) else (("" + ("null" if name is None else name)) + "()"))
+        info = func.returnType
+        display = ((((("" + ("null" if name is None else name)) + "( ") + ("null" if parametersFormatted is None else parametersFormatted)) + " )") if ((len(func.parameters) > 0)) else (("" + ("null" if name is None else name)) + "()"))
         i = 1
         def _hx_local_2(p1):
             nonlocal i
             nameString = ((":" + HxOverrides.stringOrNull(p1.name)) if ((p1.name is not None)) else "")
             i = (i + 1)
             return ((("${" + Std.string(((i - 1)))) + ("null" if nameString is None else nameString)) + "}")
-        snippetArguments = list(map(_hx_local_2,method.parameters))
+        snippetArguments = list(map(_hx_local_2,func.parameters))
         completion = (((("" + ("null" if name is None else name)) + "(") + HxOverrides.stringOrNull(", ".join([python_Boot.toString1(x1,'') for x1 in snippetArguments]))) + ")")
         return _hx_AnonObject({'info': info, 'display': display, 'completion': completion})
 
     @staticmethod
-    def parseMethodTypeSignature(_hx_type):
+    def parseFunctionSignature(signature):
         parameters = list()
         returnType = None
         arrowMarker = "\x01"
-        _hx_type = StringTools.replace(_hx_type,"->",arrowMarker)
+        signature = StringTools.replace(signature,"->",arrowMarker)
         parts = list()
         i = 0
         buffer = ""
         level = 0
         _g1 = 0
-        _g = len(_hx_type)
+        _g = len(signature)
         while (_g1 < _g):
             i1 = _g1
             _g1 = (_g1 + 1)
-            c = ("" if (((i1 < 0) or ((i1 >= len(_hx_type))))) else _hx_type[i1])
+            c = ("" if (((i1 < 0) or ((i1 >= len(signature))))) else signature[i1])
             c1 = c
             if (((c1 == "{") or ((c1 == "<"))) or ((c1 == "("))):
                 level = (level + 1)
