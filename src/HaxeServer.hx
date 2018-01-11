@@ -19,6 +19,7 @@ typedef AsyncHandle = {
 
 // https://haxe.org/manual/cr-completion-overview.html
 @:enum abstract CompletionMode(String) to String {
+	var Unset = null;
 	var Usage = 'usage';
 	var Position = 'position';
 	var Toplevel = 'toplevel';
@@ -124,7 +125,7 @@ class HaxeServerStdio implements HaxeServer {
 		}
 	}
 
-	public function display(hxml: String, filePath: String, location: Int, ?mode: String, ?fileContent: String) {
+	public function display(hxml: String, filePath: String, location: Int, mode: String, details: Bool, ?fileContent: String) {
 		// -D use-rtti-doc "Allows access to documentation during compilation"
 		// -D display-details "each field additionally has a k attribute which can either be var or method. This allows distinguishing method fields from variable fields that have a function type."
 		// -D display-stdin "Read the contents of a file specified in --display from standard input"
@@ -133,7 +134,10 @@ class HaxeServerStdio implements HaxeServer {
 		var modeString = mode == null ? '' : '@$mode';
 
 		var displayDirectives = '';
-		displayDirectives += '\n-D display-details';
+
+		if (details) {
+			displayDirectives += '\n-D display-details';
+		}
 
 		if (fileContent != null) {
 			displayDirectives += '\n-D display-stdin';
@@ -150,9 +154,14 @@ class HaxeServerStdio implements HaxeServer {
 		var hasError = false;
 		if (result.fastCodeAt(0) != '<'.fastCodeAt(0)){
 			hasError = result.indexOf(String.fromCharCode(0x02)) != -1;
+			// remove error indicator(s)
+			result = result.replace('\x02\n', '');
 		}
 
-		trace(result);
+		return {
+			output: result,
+			hasError: hasError
+		}
 	}
 
 	/**
@@ -177,7 +186,7 @@ class HaxeServerStdio implements HaxeServer {
 				case 0x02:
 					hasError = true;
 				default:
-					output += line;
+					output += line + '\n';
 			}
 		}
 
@@ -187,7 +196,6 @@ class HaxeServerStdio implements HaxeServer {
 		};
 	}
 
-	// be aware: if haxe produces no response (as in the case of a successful compile) then this will hang and throw
 	function execute(hxml: String, ?timeout_s: Float): haxe.io.Bytes {
 		var buffer = new haxe.io.BytesBuffer();
 		buffer.addString('\n' + hxml + '\n');
@@ -199,17 +207,23 @@ class HaxeServerStdio implements HaxeServer {
 		payloadBytes.setInt32(0, length);
 		payloadBytes.blit(4, bytes, 0, length);
 
+		var result = null;
 		// lock writing to the process until it's returns results
 		processWriteLock.acquire();
-		// trace('Writing buffer: ', payloadBytes.getData());
-		// if there was an timeout or an exception reading previous message, there will be residual junk in the queue
-		try {
-			while(true) errQueue.get(false); // pop queue until empty
-		} catch (e: python.lib.Queue.Empty) {}
-		// @! maybe we should ensure the ioQueue is empty at this point - junk may be left from previous executions if the timeout was reached
-		process.stdin.write(payloadBytes.getData());
-		process.stdin.flush();
-		var result = errQueue.get(true, timeout_s);
+		{
+			// trace('Writing buffer: ', payloadBytes.getData());
+
+			// if there was an timeout or an exception reading previous message, there will be residual junk in the queue
+			try {
+				while(true) errQueue.get(false); // pop queue until empty
+			} catch (e: python.lib.Queue.Empty) {}
+
+			process.stdin.write(payloadBytes.getData());
+			process.stdin.flush();
+
+			// @! if this timesout it will throw – it might be better to catch it and return null instead
+			result = errQueue.get(true, timeout_s);
+		}
 		processWriteLock.release();
 		
 		return result;

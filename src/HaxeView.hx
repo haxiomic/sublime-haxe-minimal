@@ -1,8 +1,9 @@
 import python.lib.io.FileIO;
 
-class HaxeView extends sublime_plugin.ViewEventListener {
+using StringTools;
+using Lambda;
 
-	// var tempFileHandle: FileIO;
+class HaxeView extends sublime_plugin.ViewEventListener {
 
 	static inline var HAXE_STATUS = 'haxe_status';
 
@@ -10,114 +11,268 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 	}
 
 	override function on_close() {
-		// perform clean up of local state
-		// the temp file is automatically deleted on close
-		// if (tempFileHandle != null) {
-			// tempFileHandle.close();
-			// tempFileHandle = null;
-		// }
 	}
 
 	override function on_post_save_async() {
-		// build using the project hxml associated with the view
-		// there may be no hxml file to find, in which case, use some sensible default build arguments
 	}
 
 	override function on_query_completions(prefix:String, locations:Array<Int>):Null<haxe.extern.EitherType<Array<Any>, python.Tuple<Any>>> {
 		var hxml = HaxeProject.getHxmlForView(view);
 
 		if (hxml == null) {
-			view.set_status(HAXE_STATUS, 'Could not find hxml for autocomplete');
+			view.set_status(HAXE_STATUS, 'Autocomplete: Could not find hxml');
 			return null;
 		}
 
 		var viewContent = view.substr(new sublime.Region(0, view.size()));
 		var haxeServer = HaxeProject.getHaxeServerHandle(view, Stdio);
 
-		var filePath = view.file_name();
-		haxeServer.display(hxml, view.file_name(), locations[0], null, viewContent);
+		var location = locations[0];
 
+		var completionMode: HaxeServer.CompletionMode = Unset;
 
-		//@! we should ensure we perform at least 1 full build before using autocomplete for cache performance
-	
-			/*
-		
-		if (viewFilePath != null && hxmlPath != null) {
-			// var tempFilePath = copyContentToTempFile(Path.directory(viewFilePath));
-
-			if (hxmlPath == null) return null;
-
-			var cwd = Path.directory(hxmlPath);
-
-			var displayMode = '@toplevel';
-			Compiler.buildOnServer(
-				[
-					hxmlPath,
-					'--cwd', cwd,
-					'-D', 'display-details',
-					'--display', '"$viewFilePath"@${locations[0]}$displayMode'
-				],
-				6000,
-				false,
-				function(stdout, stderr) {
-					trace('on_query_completions $stdout -- $stderr');
-				},
-				function(code, msg) {
-					trace('on_query_completions $code $msg');
-				}
-			);
+		// if we're in the middle of typing out a field, we should step back to the .
+		var proceedingNonWordChar = viewContent.charAt(location - prefix.length - 1);
+		switch proceedingNonWordChar {
+			case '.':
+				completionMode = Unset; // used for field completion
+				location -= prefix.length;
+			default:
+				completionMode = Toplevel;
 		}
+
+		var result = haxeServer.display(hxml, view.file_name(), location, completionMode, completionMode == Unset, viewContent);
+
+		if (!result.hasError) {
+			/*
+				# Parse completion XML
+				Fields and type paths:
+					<list>
+						<i n="{name}" ?k="{field kind}">
+							<t>?{type name}</t>
+							<d>?{documentation}</d>
+						</i>
+						<i>...</i>
+					</list>
+
+				Top-level:
+					<il>
+						<i k="{kind}" ?t="{type}" ?p="{path}">
+							{name}
+						</i>
+						<i>...</i>
+					</il>
 			*/
+
+			var xml: Xml;
+			try xml = Xml.parse(result.output)
+			catch(e: Any) {
+				view.set_status(HAXE_STATUS, 'Autocomplete: ' + result.output);
+				return null;
+			}
+
+			var x = new haxe.xml.Fast(xml);
+
+			var maxDisplayLength = 50;
+			var overflowSuffix = ' …  ';
+
+			var completions = new Array<{display: String, info: String, completion: String}>();
+
+			if (x.hasNode.list) {
+
+				for (item in x.node.list.nodes.i) {
+					var name = item.att.n;
+					var kind = item.has.k ? item.att.k : '';// var or method
+					var type = item.hasNode.t ? item.node.t.innerData : '';
+
+					// defaults
+					var display = name;
+					var info = type != '' ? type : (isUpperCase(name.charAt(0)) ? 'class' : 'module');
+					var completion = name;
+					
+					switch kind {
+						case 'method':
+							// process for readability
+							var c = generateMethodCompletion(name, parseMethodTypeSignature(type));
+							display = c.display;
+							info = c.info;
+							completion = c.completion;
+					}
+
+					completions.push({
+						display: display,
+						info: info,
+						completion: completion
+					});
+				}
+
+			} else if (x.hasNode.il) {
+
+				for (item in x.node.il.nodes.i) {
+					var name = item.innerData;
+					var kind = item.att.k;
+					var type = item.has.t ? item.att.t : null;
+					var path = item.has.p ? item.att.p : null;
+
+					var display = name;
+					var info = type != null ? type : kind;
+					var completion = name;
+
+					// check if type represents a function, if so, process for readability
+					if (type != null) {
+						var t = parseMethodTypeSignature(type);
+						if (t.parameters.length > 0) {
+							var c = generateMethodCompletion(name, parseMethodTypeSignature(type));
+							display = c.display;
+							info = c.info;
+							completion = c.completion;
+						}
+					}
+
+					completions.push({
+						display: display,
+						info: info,
+						completion: completion
+					});
+				}
+
+			}
+
+			var sublimeCompletions = completions.map(function(c) {
+				if (c.info == 'Unknown<0>') c.info = '•';
+
+				if (c.display.length > (maxDisplayLength - overflowSuffix.length)) {
+					c.display = c.display.substr(0, (maxDisplayLength - overflowSuffix.length)) + overflowSuffix;
+				}
+				return [
+					c.display + 
+					(c.info != null ? '\t' + c.info : ''),
+					c.completion
+				];
+			});
+
+			view.erase_status(HAXE_STATUS);
+			
+			return untyped python.Tuple.Tuple2.make(
+				sublimeCompletions,
+				sublime.Sublime.INHIBIT_WORD_COMPLETIONS /*| sublime.Sublime.INHIBIT_EXPLICIT_COMPLETIONS*/
+			);
+
+		} else {
+			view.set_status(HAXE_STATUS, 'Autocomplete: ' + result.output);
+			updateErrors(result.output);
+		}
 
 		return null;
 	}
-
-	/*
-	var _tempFileChangeCount:Int = -1;
-	function copyContentToTempFile(directory: String): String {
-		// clear old temp file if it's in the wrong directory
-		if (tempFileHandle != null) {
-			if (Path.directory(tempFileHandle.name) != directory) {
-				tempFileHandle.close();
-				tempFileHandle = null;
-			}
-		}
-
-		if (tempFileHandle == null) {
-			// this temporary file will automatically delete itself when closed
-			tempFileHandle = python.lib.Tempfile.NamedTemporaryFile(
-				'w',
-				-1,
-				'utf-8',
-				null,
-				'.hx', // suffix
-				'__${HaxePlugin.id}__', // prefix
-				directory, // directory
-				true // delete on close
-			);
-			_tempFileChangeCount = -1;
-			trace('Created temporary file ${tempFileHandle.name}');
-		}
-
-		// write contents to file if the file has changed since last writing it
-		var currentChangeCount = view.change_count();
-		if (_tempFileChangeCount != currentChangeCount) {
-			var viewContent = view.substr(new sublime.Region(0, view.size()));
-			tempFileHandle.seek(0, SeekSet);
-			tempFileHandle.truncate(0);
-			tempFileHandle.write(untyped viewContent); // string -> bytes conversion is handled automatically controlled by the file encoding
-			tempFileHandle.flush();
-			_tempFileChangeCount = view.change_count();
-		}
-
-		return tempFileHandle.name;
-	}
-	*/
 
 	static function is_applicable(settings: sublime.Settings) {
 		return settings.get('syntax') == 'Packages/Haxe Minimal/syntax/haxe.tmLanguage';
 	}
 
 	static function applies_to_primary_view_only() return false;
+
+	static function updateErrors(haxeErrorString: String) {
+		// @! todo display errors
+	}
+
+	static inline function generateMethodCompletion(name: String, method: {
+		parameters: Array<{name: String, type: String}>,
+		returnType: String,
+	}) {
+		// remove first element if it is void
+		if (method.parameters[0].type == 'Void') {
+			method.parameters.shift();
+		}
+
+		// format parameters
+		var parametersFormatted = method.parameters.map(function(p) return '${p.name}: ${p.type}').join(', ');
+
+		var info = method.returnType;
+		var display = method.parameters.length > 0 ? '$name( $parametersFormatted )' : '$name()';
+
+		var i = 1;
+		var snippetArguments = method.parameters.map(
+			function(p) {
+				var nameString = p.name != null ? ':${p.name}' : '';
+				return "${" + i++ + nameString + "}";
+			}
+		);
+
+		var completion = '$name(' + snippetArguments.join(', ') + ')';
+
+		return {
+			info: info,
+			display: display,
+			completion: completion
+		}
+	}
+
+	static function parseMethodTypeSignature(type: String) {
+		// Examples
+		// 	f : (Int -> ( Void -> String ) ) -> name : Int -> Array<String> -> Void
+		//  a : Array<Void->Void> -> Void
+		//  m : { x: String -> Int } -> Void
+
+		var parameters = new Array<{name: String, type: String}>();
+		var returnType: String = null;
+
+		var arrowMarker = String.fromCharCode(0x1);
+
+		// to make parsing easier, we replace the arrows with a single special character
+		type = type.replace('->', arrowMarker);
+
+		// split by -> only when outside parentheses
+		var parts = new Array<String>();
+
+		var i = 0;
+		var buffer = '';
+		var level = 0;
+		for (i in 0...type.length) {
+			var c = type.charAt(i);
+			switch c {
+				case '(', '<', '{': level++;
+				case ')', '>', '}': level--;
+				case c if (c == arrowMarker): 
+					if (level <= 0) {
+						// flush buffer
+						parts.push(buffer.trim());
+						buffer = '';
+					} else {
+						// restore arrow
+						buffer += '->';
+					}
+				default: buffer += c;
+			}
+		}
+
+		for(part in parts) {
+			var firstColonIdx = part.indexOf(':');
+			parameters.push({
+				name: firstColonIdx != -1 ? part.substr(0, firstColonIdx).trim() : null,
+				type: part.substr(firstColonIdx + 1).trim()
+			});
+		}
+
+		returnType = buffer.trim();
+
+		return {
+			parameters: parameters,
+			returnType: returnType
+		}
+	}
+
+	static inline function isUpperCase(str: String) {
+		return str.toUpperCase() == str;
+	}
+
+	static inline function clampString(str: String, minLength: Int, maxLength: Int, overflowSuffix, pad: String -> Int -> String) {
+		if (str.length > maxLength - overflowSuffix.length) {
+			str = str.substr(0, maxLength - overflowSuffix.length) + overflowSuffix;
+		} else if (str.length < minLength) {
+			str = pad(str, minLength);
+		}
+		return str;
+	}
 
 }

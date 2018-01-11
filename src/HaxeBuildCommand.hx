@@ -2,7 +2,7 @@
 // This class redefines run to include the extra arguments
 @:pythonImport("sublime_plugin", "WindowCommand") private extern class VariantsWindowCommand extends sublime_plugin.WindowCommand {
 	override function new(window:sublime.Window);
-	override function run(?args:python.Dict<String, Any>, ?interp_after_build: Bool): Void;
+	override function run(?args:python.Dict<String, Any>, ?run_after_build: Bool): Void;
 }
 
 class HaxeBuildCommand extends VariantsWindowCommand {
@@ -17,7 +17,7 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 			// return true if process is running - this will enable the cancel command
 			return false;
 		}
-		if (args != null && args.get('interp_after_build') == true) {
+		if (args != null && args.get('run_after_build') == true) {
 			// should add --interp argument
 			return false;
 		}
@@ -28,7 +28,7 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 		return is_enabled(args);
 	}
 
-	override function run(?args:python.Dict<String, Any>, ?interp_after_build: Bool = false):Void {
+	override function run(?args:python.Dict<String, Any>, ?run_after_build: Bool = false):Void {
 		if (args != null && args.get('kill') == true) {
 			trace('@! todo: implement cancel build');
 			return;
@@ -60,6 +60,7 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 
 			case 'Packages/Haxe Minimal/syntax/haxe.tmLanguage':
 				hxmlContent = HaxeProject.getHxmlForView(view);
+				// can we use --run ?
 		}
 
 		if (hxmlContent == null) {
@@ -92,8 +93,6 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 					appendPanel(result.output);
 					showResultsPanel();
 				}
-
-				trace('Results', result);
 
 				buildHandle = null;
 			},

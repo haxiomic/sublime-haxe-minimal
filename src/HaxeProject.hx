@@ -29,11 +29,26 @@ class HaxeProject {
 	**/
 	static public function getHxmlForView(view: sublime.View): String {
 		var hxmlPath = findAssociatedHxmlPath(view);
+
 		if (hxmlPath != null) {
 			var cwd = Path.directory(hxmlPath);
 			return '--cwd "$cwd"\n' + sys.io.File.getContent(hxmlPath);
 		}
-		return null;
+
+		return generateHxmlForView(view);
+	}
+
+	/**
+		@!todo
+		When a view has no associated hxml file we can try to produce some arguments to enable autocompletion and --interp
+	**/
+	static public function generateHxmlForView(view: sublime.View) {
+		var hxml = '\n--no-output';
+		if (view.file_name() != null) {
+			hxml += '\n--cwd ${Path.directory(view.file_name())}';
+			hxml += '\n${Path.withoutDirectory(view.file_name())}';
+		}
+		return hxml;
 	}
 	
 	// returns absolute path of hxml file that may be used to build compile a view
@@ -46,6 +61,7 @@ class HaxeProject {
 			var searchDir = Path.directory(view.file_name());
 
 			for(i in 0...maxDepth) {
+				if (searchDir == '') break;
 				var files = sys.FileSystem.readDirectory(searchDir);
 				for (f in files) {
 					if (Path.extension(f).toLowerCase() == 'hxml') {
