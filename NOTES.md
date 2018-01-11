@@ -1,4 +1,9 @@
 # Todo
+- Hover on symbol show show type and documentation
+- Speed up completions by catching on_modified_async, by default this is 50ms before on_query_completions is fired
+	- Be sure to check the value of auto_complete_delay to verify if it's worth it
+- Full build before query for faster completion
+- Hand display when file path is null
 - Kill processes when plugin unloaded?
 - Faster completion:
 	https://github.com/vshaxe/vshaxe/wiki/Completion-Cache
@@ -46,3 +51,4 @@
 - https://api.haxe.org/python/lib/io/IOBase.html seek whence should be optional
 - https://api.haxe.org/python/lib/io/IOBase.html truncate size should be optional
 - (Maybe deliberate) display-details missing from haxe --help-defines 
+- haxe --run needs documentation
