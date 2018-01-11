@@ -1,0 +1,27 @@
+{
+    "scope": "source.haxe.2",
+    "completions": [
+        {
+            "trigger": "trace\tmethod",
+            "contents": "trace"
+        }, {
+            "trigger": "this\tkeyword",
+            "contents": "this"
+        }, {
+            "trigger": "super\tmethod",
+            "contents": "super"
+        }, {
+            "trigger": "else\tkeyword",
+            "contents": "else"
+        }, {
+            "trigger": "if\tkeyword",
+            "contents": "if"
+        }, {
+            "trigger": "while\tkeyword",
+            "contents": "while"
+        }, {
+            "trigger": "switch\tkeyword",
+            "contents": "switch"
+        }
+    ]
+}

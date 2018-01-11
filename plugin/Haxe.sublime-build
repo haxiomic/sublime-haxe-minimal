@@ -4,8 +4,8 @@
 	// "cancel": {"kill": true},
 	"variants": [
 		{
-			"name": "Interpret",
-			"interp_after_build": true
+			"name": "Run as macro",
+			"run_after_build": true
 		}
 	]
 }
