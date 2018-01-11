@@ -19,6 +19,17 @@ class HaxeProject {
 
 	}
 
+	static public function terminateHaxeServers() {
+		if (haxeServerStdioHandle != null) {
+			haxeServerStdioHandle.terminate();
+			haxeServerStdioHandle = null;
+		}
+		if (haxeServerSocketHandle != null) {
+			haxeServerSocketHandle.terminate();
+			haxeServerSocketHandle = null;
+		}
+	}
+
 	/**
 		@!todo
 			- split --next and handle --each
@@ -51,8 +62,10 @@ class HaxeProject {
 		return hxml;
 	}
 	
-	// returns absolute path of hxml file that may be used to build compile a view
-	// returns null if no hxml path can be found
+	/**
+		@!todo
+		Searches and returns the absolute path of a hxml file that may be used to build compile a view or null if no hxml path can be found
+	**/
 	static public function findAssociatedHxmlPath(view: sublime.View): String {
 
 		// search local and parent directories for hxml files
@@ -84,6 +97,9 @@ class HaxeProject {
 		return null;
 	}
 
+	/**
+		@!todo
+	**/
 	static function validateHxmlForView(view: sublime.View, hxmlPath: String) {
 		// @! can we determine if this hxml file will compile the view?
 		return true;

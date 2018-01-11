@@ -246,7 +246,7 @@ HaxeBuildCommand._hx_class = HaxeBuildCommand
 class HaxePlugin:
     _hx_class_name = "HaxePlugin"
     __slots__ = ()
-    _hx_statics = ["id", "main"]
+    _hx_statics = ["id", "main", "plugin_unloaded"]
 
     @staticmethod
     def main():
@@ -263,13 +263,18 @@ class HaxePlugin:
                     suffix = ""
             print(((("null" if prefix is None else prefix) + ("null" if _hx_str is None else _hx_str)) + ("null" if suffix is None else suffix)))
         haxe_Log.trace = _hx_local_0
+
+    @staticmethod
+    def plugin_unloaded():
+        haxe_Log.trace("Plugin unloaded!",_hx_AnonObject({'fileName': "HaxePlugin.hx", 'lineNumber': 25, 'className': "HaxePlugin", 'methodName': "plugin_unloaded"}))
+        HaxeProject.terminateHaxeServers()
 HaxePlugin._hx_class = HaxePlugin
 
 
 class HaxeProject:
     _hx_class_name = "HaxeProject"
     __slots__ = ()
-    _hx_statics = ["haxeServerStdioHandle", "haxeServerSocketHandle", "getHaxeServerHandle", "getHxmlForView", "generateHxmlForView", "findAssociatedHxmlPath", "validateHxmlForView"]
+    _hx_statics = ["haxeServerStdioHandle", "haxeServerSocketHandle", "getHaxeServerHandle", "terminateHaxeServers", "getHxmlForView", "generateHxmlForView", "findAssociatedHxmlPath", "validateHxmlForView"]
 
     @staticmethod
     def getHaxeServerHandle(view,mode):
@@ -279,6 +284,16 @@ class HaxeProject:
             return HaxeProject.haxeServerStdioHandle
         else:
             raise _HxException("Not yet supported")
+
+    @staticmethod
+    def terminateHaxeServers():
+        haxe_Log.trace("terminateHaxeServers()!",_hx_AnonObject({'fileName': "HaxeProject.hx", 'lineNumber': 23, 'className': "HaxeProject", 'methodName': "terminateHaxeServers"}))
+        if (HaxeProject.haxeServerStdioHandle is not None):
+            HaxeProject.haxeServerStdioHandle.terminate()
+            HaxeProject.haxeServerStdioHandle = None
+        if (HaxeProject.haxeServerSocketHandle is not None):
+            HaxeProject.haxeServerSocketHandle.terminate()
+            HaxeProject.haxeServerSocketHandle = None
 
     @staticmethod
     def getHxmlForView(view):
@@ -387,6 +402,7 @@ class HaxeServerStdio:
 
     def terminate(self):
         if (self.process is not None):
+            haxe_Log.trace("Terminating process",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 101, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
             self.process.terminate()
         self.process = None
         self.errQueue = None
@@ -509,7 +525,7 @@ class HaxeServerStdio:
                 else:
                     raise _HxException("Unexpected number of bytes return from pipe")
             pipe1.close()
-            haxe_Log.trace("MessageReaderThread closed",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 267, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
+            haxe_Log.trace("MessageReaderThread closed",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 268, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
         enqueueMessages = _hx_local_1
         queue1 = python_lib_Queue()
         messageReaderThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': enqueueMessages, 'args': tuple([pipe, queue1]), 'daemon': True})))
@@ -523,7 +539,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
     _hx_class_name = "HaxeView"
     __slots__ = ()
     _hx_fields = []
-    _hx_methods = ["on_modified", "on_close", "on_post_save_async", "on_query_completions"]
+    _hx_methods = ["on_modified", "on_close", "on_post_save_async", "on_query_completions", "on_hover"]
     _hx_statics = ["HAXE_STATUS", "is_applicable", "applies_to_primary_view_only", "updateErrors", "generateFunctionCompletion", "parseFunctionSignature", "isUpperCase", "clampString"]
     _hx_super = sublime_plugin_ViewEventListener
 
@@ -691,7 +707,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
                             completion2 = c_completion1
                     completions.append(_hx_AnonObject({'display': display2, 'info': info2, 'completion': completion2}))
             def _hx_local_19(c):
-                if (c.info == "Unknown<0>"):
+                if ((c.info == "Unknown<0>") or ((c.info == "Unknown0"))):
                     c.info = "•"
                 if (len(c.display) > ((maxDisplayLength - len(overflowSuffix)))):
                     c.display = (HxOverrides.stringOrNull(HxString.substr(c.display,0,(maxDisplayLength - len(overflowSuffix)))) + ("null" if overflowSuffix is None else overflowSuffix))
@@ -703,6 +719,9 @@ class HaxeView(sublime_plugin_ViewEventListener):
             self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.output)))
             HaxeView.updateErrors(result.output)
         return ([], ((sublime_Sublime.INHIBIT_WORD_COMPLETIONS | sublime_Sublime.INHIBIT_EXPLICIT_COMPLETIONS) if fieldCompletion else 0))
+
+    def on_hover(self,point,hover_zone):
+        haxe_Log.trace(((("on_hover " + Std.string(point)) + " ") + Std.string(hover_zone)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 177, 'className': "HaxeView", 'methodName': "on_hover"}))
 
     @staticmethod
     def is_applicable(settings):

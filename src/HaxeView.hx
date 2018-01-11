@@ -141,7 +141,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			}
 
 			var sublimeCompletions = completions.map(function(c) {
-				if (c.info == 'Unknown<0>') c.info = '•';
+				if (c.info == 'Unknown<0>' || c.info == 'Unknown0') c.info = '•';
 
 				if (c.display.length > (maxDisplayLength - overflowSuffix.length)) {
 					c.display = c.display.substr(0, (maxDisplayLength - overflowSuffix.length)) + overflowSuffix;
@@ -170,6 +170,11 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			// inhibit all if it's in field completion mode
 			fieldCompletion ? (sublime.Sublime.INHIBIT_WORD_COMPLETIONS | sublime.Sublime.INHIBIT_EXPLICIT_COMPLETIONS) : 0
 		);
+	}
+
+	override function on_hover(point: Int, hover_zone:Int) {
+		//@!todo
+		trace('on_hover $point $hover_zone');
 	}
 
 	static function is_applicable(settings: sublime.Settings) {
