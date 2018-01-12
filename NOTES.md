@@ -1,6 +1,6 @@
 # Todo
+- Switch to VsHaxe syntax files (and maybe see if there are other parts of VsHaxe that we can use)
 - Better completion scoping – we don't want haxe-server completion when writing method names for example
-	- We can support structure completion by modifying the syntax to mark the scope when we're in a structure (see https://github.com/HaxeFoundation/haxe/blob/master/tests/display/src/cases/StructureCompletion.hx)
 - Keyword completion, this, super, etc
 - Hover on symbol show show type and documentation
 - Speed up completions by catching on_modified_async, by default this is 50ms before on_query_completions is fired
@@ -22,7 +22,7 @@
 	- execute haxe-build-run command
 	- Custom panel shows build and run result (probably via neko or --interp)
 - Better system to guess build.hxml – we should find all build.hxml files in a project and check if the view is involved in the compilation
-- Allow build.hxml to be specified
+- Allow build.hxml to be specified (can use context and side bar menus + WindowCommand.isVisible)
 - Fix weird indent:
 	weird_indent({
 		});
@@ -39,6 +39,7 @@
 	- What about multiple windows with a haxe server
 ? Use a different haxe server port if 6000 is in use
 - Show symbol usages via panel
+- Support diagnostics
 
 # Notes
 - Haxe supports determining all occurrences of a given type, field or variable in all compiled files
