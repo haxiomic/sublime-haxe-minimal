@@ -21,8 +21,4 @@ class HaxePlugin {
 		}
 	}
 
-	static public function plugin_unloaded() {
-		HaxeProject.terminateHaxeServers();
-	}
-
 }

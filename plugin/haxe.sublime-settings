@@ -1,8 +1,11 @@
 {
+	// disable auto complete in certain scopes
+	"auto_complete_selector": "source -keyword.control.directive.conditional.haxe.2",
+	// enable auto complete after . except for in certain scopes
 	"auto_complete_triggers": [
 		{
 			"characters": ".",
-			"selector": "source.haxe.2 - string - keyword.control.directive.conditional.haxe.2"
+			"selector": "source -keyword.control.directive.conditional.haxe.2"
 		}
 	]
 }

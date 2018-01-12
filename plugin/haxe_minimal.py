@@ -246,7 +246,7 @@ HaxeBuildCommand._hx_class = HaxeBuildCommand
 class HaxePlugin:
     _hx_class_name = "HaxePlugin"
     __slots__ = ()
-    _hx_statics = ["id", "main", "plugin_unloaded"]
+    _hx_statics = ["id", "main"]
 
     @staticmethod
     def main():
@@ -263,11 +263,6 @@ class HaxePlugin:
                     suffix = ""
             print(((("null" if prefix is None else prefix) + ("null" if _hx_str is None else _hx_str)) + ("null" if suffix is None else suffix)))
         haxe_Log.trace = _hx_local_0
-
-    @staticmethod
-    def plugin_unloaded():
-        haxe_Log.trace("Plugin unloaded!",_hx_AnonObject({'fileName': "HaxePlugin.hx", 'lineNumber': 25, 'className': "HaxePlugin", 'methodName': "plugin_unloaded"}))
-        HaxeProject.terminateHaxeServers()
 HaxePlugin._hx_class = HaxePlugin
 
 
@@ -287,7 +282,6 @@ class HaxeProject:
 
     @staticmethod
     def terminateHaxeServers():
-        haxe_Log.trace("terminateHaxeServers()!",_hx_AnonObject({'fileName': "HaxeProject.hx", 'lineNumber': 23, 'className': "HaxeProject", 'methodName': "terminateHaxeServers"}))
         if (HaxeProject.haxeServerStdioHandle is not None):
             HaxeProject.haxeServerStdioHandle.terminate()
             HaxeProject.haxeServerStdioHandle = None
@@ -355,7 +349,7 @@ class HaxeServerStdio:
     _hx_class_name = "HaxeServerStdio"
     __slots__ = ("processUserArgs", "process", "processWriteLock", "errQueue")
     _hx_fields = ["processUserArgs", "process", "processWriteLock", "errQueue"]
-    _hx_methods = ["start", "restart", "terminate", "buildAsync", "display", "build", "execute"]
+    _hx_methods = ["__del__", "start", "restart", "terminate", "buildAsync", "display", "build", "execute"]
     _hx_statics = ["createServerMessageQueue"]
 
     def __init__(self,args = None):
@@ -367,11 +361,14 @@ class HaxeServerStdio:
             self.processUserArgs = args
         self.start(self.processUserArgs)
 
+    def __del__(self):
+        self.terminate()
+
     def start(self,args):
         sys = python_lib_Sys
         moduleNames = Reflect.field(sys,"builtin_module_names")
         isPosix = (python_internal_ArrayImpl.indexOf(list(moduleNames),"posix",None) != -1)
-        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 61, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 83, 'className': "HaxeServerStdio", 'methodName': "start"}))
         args1 = (["haxe", "--wait", "stdio"] + args)
         o = _hx_AnonObject({'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE, 'stdin': python_lib_Subprocess.PIPE, 'close_fds': isPosix})
         Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
@@ -394,7 +391,7 @@ class HaxeServerStdio:
             raise _HxException(((("Haxe server failed to start: (" + Std.string(exitCode)) + ") ") + ("null" if errorMessage is None else errorMessage)))
         self.errQueue = HaxeServerStdio.createServerMessageQueue(self.process.stderr)
         haxeVersionString = self.execute("-version",1.5).toString()
-        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 84, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 106, 'className': "HaxeServerStdio", 'methodName': "start"}))
 
     def restart(self):
         self.terminate()
@@ -402,7 +399,7 @@ class HaxeServerStdio:
 
     def terminate(self):
         if (self.process is not None):
-            haxe_Log.trace("Terminating process",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 101, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
+            haxe_Log.trace("Stopping haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 123, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
             self.process.terminate()
         self.process = None
         self.errQueue = None
@@ -421,7 +418,7 @@ class HaxeServerStdio:
             def _hx_local_1():
                 nonlocal cancelled
                 cancelled = True
-            return _hx_AnonObject({'cancel': _hx_local_1})
+            return _hx_AnonObject({'isRunning': buildThread.is_alive, 'cancel': _hx_local_1})
         return _hx_local_2()
 
     def display(self,hxml,filePath,location,mode,details,fileContent = None):
@@ -525,7 +522,6 @@ class HaxeServerStdio:
                 else:
                     raise _HxException("Unexpected number of bytes return from pipe")
             pipe1.close()
-            haxe_Log.trace("MessageReaderThread closed",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 268, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
         enqueueMessages = _hx_local_1
         queue1 = python_lib_Queue()
         messageReaderThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': enqueueMessages, 'args': tuple([pipe, queue1]), 'daemon': True})))
@@ -557,11 +553,24 @@ class HaxeView(sublime_plugin_ViewEventListener):
         pass
 
     def on_query_completions(self,prefix,locations):
+        completionLocation = (locations[0] if 0 < len(locations) else None)
+        completionScope = self.view.scope_name(completionLocation)
+        viewContent = self.view.substr(sublime_Region(0,self.view.size()))
+        completionMode = None
+        index = ((completionLocation - len(prefix)) - 1)
+        proceedingNonWordChar = ("" if (((index < 0) or ((index >= len(viewContent))))) else viewContent[index])
+        if (proceedingNonWordChar == "."):
+            completionMode = ""
+            completionLocation = (completionLocation - len(prefix))
+        else:
+            completionMode = "toplevel"
+        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(completionMode)) + "\""),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 38, 'className': "HaxeView", 'methodName': "on_query_completions"}))
+        if (completionMode is None):
+            return None
         hxml = HaxeProject.getHxmlForView(self.view)
         if (hxml is None):
             self.view.set_status("haxe_status","Autocomplete: Could not find hxml")
             return None
-        viewContent = self.view.substr(sublime_Region(0,self.view.size()))
         view = self.view
         haxeServer = None
         if (0 == 0):
@@ -570,18 +579,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
             haxeServer = HaxeProject.haxeServerStdioHandle
         else:
             raise _HxException("Not yet supported")
-        location = (locations[0] if 0 < len(locations) else None)
-        completionMode = None
-        fieldCompletion = False
-        index = ((location - len(prefix)) - 1)
-        proceedingNonWordChar = ("" if (((index < 0) or ((index >= len(viewContent))))) else viewContent[index])
-        if (proceedingNonWordChar == "."):
-            completionMode = None
-            fieldCompletion = True
-            location = (location - len(prefix))
-        else:
-            completionMode = "toplevel"
-        result = haxeServer.display(hxml,self.view.file_name(),location,completionMode,(completionMode == None),viewContent)
+        result = haxeServer.display(hxml,self.view.file_name(),completionLocation,completionMode,(completionMode == ""),viewContent)
         if (not result.hasError):
             xml = None
             try:
@@ -598,7 +596,8 @@ class HaxeView(sublime_plugin_ViewEventListener):
             maxDisplayLength = 50
             overflowSuffix = " …  "
             completions = list()
-            if haxe_xml__Fast_HasNodeAccess_Impl_.resolve(x,"list"):
+            completionMode1 = completionMode
+            if (completionMode1 == ""):
                 _g = 0
                 _g1 = haxe_xml__Fast_NodeListAccess_Impl_.resolve(haxe_xml__Fast_NodeAccess_Impl_.resolve(x,"list"),"i")
                 while (_g < len(_g1)):
@@ -653,7 +652,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
                         info = c_info
                         completion = c_completion
                     completions.append(_hx_AnonObject({'display': display, 'info': info, 'completion': completion}))
-            elif haxe_xml__Fast_HasNodeAccess_Impl_.resolve(x,"il"):
+            elif (completionMode1 == "toplevel"):
                 _g2 = 0
                 _g11 = haxe_xml__Fast_NodeListAccess_Impl_.resolve(haxe_xml__Fast_NodeAccess_Impl_.resolve(x,"il"),"i")
                 while (_g2 < len(_g11)):
@@ -669,22 +668,21 @@ class HaxeView(sublime_plugin_ViewEventListener):
                     if (type1 is not None):
                         t = HaxeView.parseFunctionSignature(type1)
                         if (len(t.parameters) > 0):
-                            func1 = HaxeView.parseFunctionSignature(type1)
-                            if ((func1.parameters[0] if 0 < len(func1.parameters) else None).type == "Void"):
-                                _this4 = func1.parameters
+                            if ((t.parameters[0] if 0 < len(t.parameters) else None).type == "Void"):
+                                _this4 = t.parameters
                                 if (len(_this4) != 0):
                                     _this4.pop(0)
-                            _this5 = func1.parameters
+                            _this5 = t.parameters
                             def _hx_local_12():
                                 def _hx_local_11(p2):
                                     return ((("" + HxOverrides.stringOrNull(p2.name)) + ": ") + HxOverrides.stringOrNull(p2.type))
                                 return _hx_local_11
                             _this6 = list(map(_hx_local_12(),_this5))
                             parametersFormatted1 = ", ".join([python_Boot.toString1(x1,'') for x1 in _this6])
-                            info3 = func1.returnType
-                            display3 = ((((("" + ("null" if name1 is None else name1)) + "( ") + ("null" if parametersFormatted1 is None else parametersFormatted1)) + " )") if ((len(func1.parameters) > 0)) else (("" + ("null" if name1 is None else name1)) + "()"))
+                            info3 = t.returnType
+                            display3 = ((((("" + ("null" if name1 is None else name1)) + "( ") + ("null" if parametersFormatted1 is None else parametersFormatted1)) + " )") if ((len(t.parameters) > 0)) else (("" + ("null" if name1 is None else name1)) + "()"))
                             i2 = [1]
-                            _this7 = func1.parameters
+                            _this7 = t.parameters
                             def _hx_local_18(i3):
                                 def _hx_local_13(p3):
                                     nameString1 = ((":" + HxOverrides.stringOrNull(p3.name)) if ((p3.name is not None)) else "")
@@ -706,6 +704,8 @@ class HaxeView(sublime_plugin_ViewEventListener):
                             info2 = c_info1
                             completion2 = c_completion1
                     completions.append(_hx_AnonObject({'display': display2, 'info': info2, 'completion': completion2}))
+            else:
+                haxe_Log.trace(("Unhandled completion mode " + Std.string(completionMode)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 147, 'className': "HaxeView", 'methodName': "on_query_completions"}))
             def _hx_local_19(c):
                 if ((c.info == "Unknown<0>") or ((c.info == "Unknown0"))):
                     c.info = "•"
@@ -718,10 +718,34 @@ class HaxeView(sublime_plugin_ViewEventListener):
         else:
             self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.output)))
             HaxeView.updateErrors(result.output)
-        return ([], ((sublime_Sublime.INHIBIT_WORD_COMPLETIONS | sublime_Sublime.INHIBIT_EXPLICIT_COMPLETIONS) if fieldCompletion else 0))
+        if (completionMode == ""):
+            return ([], (sublime_Sublime.INHIBIT_WORD_COMPLETIONS | sublime_Sublime.INHIBIT_EXPLICIT_COMPLETIONS))
+        else:
+            return None
 
     def on_hover(self,point,hover_zone):
-        haxe_Log.trace(((("on_hover " + Std.string(point)) + " ") + Std.string(hover_zone)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 177, 'className': "HaxeView", 'methodName': "on_hover"}))
+        if (hover_zone != sublime_Sublime.HOVER_TEXT):
+            return
+        scope = self.view.scope_name(point)
+        hxml = HaxeProject.getHxmlForView(self.view)
+        if (hxml is None):
+            self.view.set_status("haxe_status","Autocomplete: Could not find hxml")
+            return
+        viewContent = self.view.substr(sublime_Region(0,self.view.size()))
+        view = self.view
+        haxeServer = None
+        if (0 == 0):
+            if (HaxeProject.haxeServerStdioHandle is None):
+                HaxeProject.haxeServerStdioHandle = HaxeServerStdio()
+            haxeServer = HaxeProject.haxeServerStdioHandle
+        else:
+            raise _HxException("Not yet supported")
+        completionMode = "type"
+        details = True
+        result = haxeServer.display(hxml,self.view.file_name(),point,completionMode,details,viewContent)
+        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 204, 'className': "HaxeView", 'methodName': "on_hover"}))
+        isVariableScope = self.view.match_selector(point,"variable")
+        haxe_Log.trace(("isVariableScope " + Std.string(isVariableScope)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 207, 'className': "HaxeView", 'methodName': "on_hover"}))
 
     @staticmethod
     def is_applicable(settings):
@@ -776,8 +800,10 @@ class HaxeView(sublime_plugin_ViewEventListener):
             c1 = c
             if (((c1 == "{") or ((c1 == "<"))) or ((c1 == "("))):
                 level = (level + 1)
+                buffer = (("null" if buffer is None else buffer) + ("null" if c is None else c))
             elif (((c1 == "}") or ((c1 == ">"))) or ((c1 == ")"))):
                 level = (level - 1)
+                buffer = (("null" if buffer is None else buffer) + ("null" if c is None else c))
             else:
                 c2 = c
                 if (c2 == arrowMarker):

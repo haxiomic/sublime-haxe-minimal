@@ -1,7 +1,4 @@
-import python.lib.io.FileIO;
-
 using StringTools;
-using Lambda;
 
 class HaxeView extends sublime_plugin.ViewEventListener {
 
@@ -17,6 +14,28 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 	}
 
 	override function on_query_completions(prefix:String, locations:Array<Int>):Null<haxe.extern.EitherType<Array<Any>, python.Tuple<Any>>> {
+		var completionLocation = locations[0];
+		var completionScope = view.scope_name(completionLocation);
+
+		var viewContent = view.substr(new sublime.Region(0, view.size()));
+
+		// determine completion mode
+		var completionMode: HaxeServer.CompletionMode = null;
+
+		var proceedingNonWordChar = viewContent.charAt(completionLocation - prefix.length - 1);
+		switch proceedingNonWordChar {
+			case '.':
+				completionMode = Field; // used for field completion
+				// if we're in the middle of typing out a field, we should step back to the .
+				completionLocation -= prefix.length;
+			default:
+				completionMode = Toplevel;
+		}
+
+		trace('Autocomplete scope "$completionScope" mode "$completionMode"');
+
+		if (completionMode == null) return null;
+
 		var hxml = HaxeProject.getHxmlForView(view);
 
 		if (hxml == null) {
@@ -24,30 +43,13 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			return null;
 		}
 
-		var viewContent = view.substr(new sublime.Region(0, view.size()));
 		var haxeServer = HaxeProject.getHaxeServerHandle(view, Stdio);
-
-		var location = locations[0];
-
-		var completionMode: HaxeServer.CompletionMode = Unset;
-		var fieldCompletion = false;
-
-		// if we're in the middle of typing out a field, we should step back to the .
-		var proceedingNonWordChar = viewContent.charAt(location - prefix.length - 1);
-		switch proceedingNonWordChar {
-			case '.':
-				completionMode = Unset; // used for field completion
-				fieldCompletion = true;
-				location -= prefix.length;
-			default:
-				completionMode = Toplevel;
-		}
-
-		var result = haxeServer.display(hxml, view.file_name(), location, completionMode, completionMode == Unset, viewContent);
+		var result = haxeServer.display(hxml, view.file_name(), completionLocation, completionMode, completionMode == Field, viewContent);
 
 		if (!result.hasError) {
 			/*
-				# Parse completion XML
+				Completion XML
+
 				Fields and type paths:
 					<list>
 						<i n="{name}" ?k="{field kind}">
@@ -80,72 +82,76 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 
 			var completions = new Array<{display: String, info: String, completion: String}>();
 
-			if (x.hasNode.list) {
+			switch completionMode {
 
-				for (item in x.node.list.nodes.i) {
-					var name = item.att.n;
-					var kind = item.has.k ? item.att.k : '';// var or method
-					var type = item.hasNode.t ? item.node.t.innerData : '';
+				case Field:
+					for (item in x.node.list.nodes.i) {
+						var name = item.att.n;
+						var kind = item.has.k ? item.att.k : '';// var or method
+						var type = item.hasNode.t ? item.node.t.innerData : '';
 
-					// defaults
-					var display = name;
-					var info = type != '' ? type : (isUpperCase(name.charAt(0)) ? 'class' : 'module');
-					var completion = name;
-					
-					switch kind {
-						case 'method':
-							// process for readability
-							var c = generateFunctionCompletion(name, parseFunctionSignature(type));
-							display = c.display;
-							info = c.info;
-							completion = c.completion;
-					}
-
-					completions.push({
-						display: display,
-						info: info,
-						completion: completion
-					});
-				}
-
-			} else if (x.hasNode.il) {
-
-				for (item in x.node.il.nodes.i) {
-					var name = item.innerData;
-					var kind = item.att.k;
-					var type = item.has.t ? item.att.t : null;
-					var path = item.has.p ? item.att.p : null;
-
-					var display = name;
-					var info = type != null ? type : kind;
-					var completion = name;
-
-					// check if type represents a function, if so, process for readability
-					if (type != null) {
-						var t = parseFunctionSignature(type);
-						if (t.parameters.length > 0) {
-							var c = generateFunctionCompletion(name, parseFunctionSignature(type));
-							display = c.display;
-							info = c.info;
-							completion = c.completion;
+						// defaults
+						var display = name;
+						var info = type != '' ? type : (isUpperCase(name.charAt(0)) ? 'class' : 'module');
+						var completion = name;
+						
+						switch kind {
+							case 'method':
+								// process for readability
+								var c = generateFunctionCompletion(name, parseFunctionSignature(type));
+								display = c.display;
+								info = c.info;
+								completion = c.completion;
 						}
+
+						completions.push({
+							display: display,
+							info: info,
+							completion: completion
+						});
 					}
 
-					completions.push({
-						display: display,
-						info: info,
-						completion: completion
-					});
-				}
+				case Toplevel:
+					for (item in x.node.il.nodes.i) {
+						var name = item.innerData;
+						var kind = item.att.k;
+						var type = item.has.t ? item.att.t : null;
+						var path = item.has.p ? item.att.p : null;
 
+						var display = name;
+						var info = type != null ? type : kind;
+						var completion = name;
+
+						// check if type represents a function, if so, process for readability
+						if (type != null) {
+							var t = parseFunctionSignature(type);
+							if (t.parameters.length > 0) { // method type
+								var c = generateFunctionCompletion(name, t);
+								display = c.display;
+								info = c.info;
+								completion = c.completion;
+							}
+						}
+
+						completions.push({
+							display: display,
+							info: info,
+							completion: completion
+						});
+					}
+
+				default:
+					trace('Unhandled completion mode $completionMode');
 			}
 
 			var sublimeCompletions = completions.map(function(c) {
+				// replace Unknown with • to reduce clutter
 				if (c.info == 'Unknown<0>' || c.info == 'Unknown0') c.info = '•';
-
+				// clamp string length
 				if (c.display.length > (maxDisplayLength - overflowSuffix.length)) {
 					c.display = c.display.substr(0, (maxDisplayLength - overflowSuffix.length)) + overflowSuffix;
 				}
+				// convert to sublime completion format
 				return [
 					c.display + 
 					(c.info != null ? '\t' + c.info : ''),
@@ -165,16 +171,37 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			updateErrors(result.output);
 		}
 
-		return untyped python.Tuple.Tuple2.make(
-			[],
-			// inhibit all if it's in field completion mode
-			fieldCompletion ? (sublime.Sublime.INHIBIT_WORD_COMPLETIONS | sublime.Sublime.INHIBIT_EXPLICIT_COMPLETIONS) : 0
-		);
+		// inhibit all if it's in field completion mode
+		if (completionMode == Field) {
+			return untyped python.Tuple.Tuple2.make([], sublime.Sublime.INHIBIT_WORD_COMPLETIONS | sublime.Sublime.INHIBIT_EXPLICIT_COMPLETIONS);
+		} else {
+			return null;
+		}
 	}
 
 	override function on_hover(point: Int, hover_zone:Int) {
-		//@!todo
-		trace('on_hover $point $hover_zone');
+		if (hover_zone != sublime.Sublime.HOVER_TEXT) return;
+		var scope = view.scope_name(point);
+
+		var hxml = HaxeProject.getHxmlForView(view);
+
+		if (hxml == null) {
+			view.set_status(HAXE_STATUS, 'Autocomplete: Could not find hxml');
+			return null;
+		}
+
+		var viewContent = view.substr(new sublime.Region(0, view.size()));
+		var haxeServer = HaxeProject.getHaxeServerHandle(view, Stdio);
+
+		var completionMode: HaxeServer.CompletionMode = Type;
+
+		var details = true;
+		var result = haxeServer.display(hxml, view.file_name(), point, completionMode, details, viewContent);
+
+		trace('on_hover "$scope" $result');
+
+		var isVariableScope = view.match_selector(point, 'variable');
+		trace('isVariableScope $isVariableScope');
 	}
 
 	static function is_applicable(settings: sublime.Settings) {
@@ -241,14 +268,13 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		// split by -> only when outside parentheses
 		var parts = new Array<String>();
 
-		var i = 0;
 		var buffer = '';
 		var level = 0;
 		for (i in 0...signature.length) {
 			var c = signature.charAt(i);
 			switch c {
-				case '(', '<', '{': level++;
-				case ')', '>', '}': level--;
+				case '(', '<', '{': level++; buffer += c;
+				case ')', '>', '}': level--; buffer += c;
 				case c if (c == arrowMarker): 
 					if (level <= 0) {
 						// flush buffer

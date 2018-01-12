@@ -1,7 +1,5 @@
-import sys.io.Process;
 import python.lib.subprocess.Popen;
 import python.lib.io.FileIO;
-import python.lib.io.IOBase;
 import python.lib.Queue;
 import python.lib.threading.Thread;
 import haxe.io.Bytes;
@@ -14,15 +12,29 @@ typedef BuildOutput = {
 }
 
 typedef AsyncHandle = {
-	cancel: Void -> Void
+	isRunning: Void -> Bool,
+	cancel: Void -> Void,
 }
 
 // https://haxe.org/manual/cr-completion-overview.html
 @:enum abstract CompletionMode(String) to String {
-	var Unset = null;
+	var Field = '';
+
 	var Usage = 'usage';
 	var Position = 'position';
 	var Toplevel = 'toplevel';
+	var Type = 'type';
+	var Package = 'package';
+
+	// Unknown modes, see tests
+	// https://github.com/HaxeFoundation/haxe/tree/master/tests/display/src/cases
+	// And --display argument handling https://github.com/HaxeFoundation/haxe/blob/master/src/display/displayOutput.ml#L643
+	// @resolve@A https://github.com/HaxeFoundation/haxe/issues/2996
+	// @type
+	// @package
+	// @signature https://github.com/HaxeFoundation/haxe/pull/4758
+	// @module-symbols
+	// @rename and @references? may not be enabled?
 }
 
 @:enum abstract HaxeServerMode<T>(Int) {
@@ -51,6 +63,14 @@ class HaxeServerStdio implements HaxeServer {
 			processUserArgs = args;
 		}
 		start(processUserArgs);
+	}
+
+	// python destructor
+	@:native('__del__')
+	@:keep
+	function __del__(){
+		// kill server if running
+		terminate();
 	}
 
 	function start(args: Array<String>) {
@@ -98,6 +118,7 @@ class HaxeServerStdio implements HaxeServer {
 	**/
 	public function terminate() {
 		if (process != null) {
+			trace('Stopping haxe server');
 			process.terminate();
 		}
 		process = null;
@@ -109,6 +130,7 @@ class HaxeServerStdio implements HaxeServer {
 	**/
 	public function buildAsync(hxml: String, onComplete: BuildOutput -> Void, ?handleLog: String -> Void, ?timeout_s: Int): AsyncHandle {
 		var cancelled = false;
+
 		function buildCallback() {
 			var result = build(hxml, handleLog, timeout_s);
 			if (!cancelled) {
@@ -118,10 +140,12 @@ class HaxeServerStdio implements HaxeServer {
 
 		var buildThread = new Thread({target: buildCallback});
 		buildThread.start();
+
 		return {
+			isRunning: buildThread.is_alive,
 			cancel: function() {
 				cancelled = true;
-			}
+			},
 		}
 	}
 
@@ -172,6 +196,7 @@ class HaxeServerStdio implements HaxeServer {
 
 		var hasError = false;
 		var output = '';
+
 		// parse result
 		var lines = result.toString().split('\n');
 		for (line in lines) {
@@ -208,12 +233,16 @@ class HaxeServerStdio implements HaxeServer {
 		payloadBytes.blit(4, bytes, 0, length);
 
 		var result = null;
+
 		// lock writing to the process until it's returns results
 		processWriteLock.acquire();
 		{
 			// trace('Writing buffer: ', payloadBytes.getData());
-
 			// if there was an timeout or an exception reading previous message, there will be residual junk in the queue
+			// clear it before sending new payloads
+			
+			// @! we should probably track unread messages (messages that timeout when reading) and wait on consuming them here and contribute the time required to the timeout
+			// additionally, we should restart the server if we're waiting too long
 			try {
 				while(true) errQueue.get(false); // pop queue until empty
 			} catch (e: python.lib.Queue.Empty) {}
@@ -234,24 +263,18 @@ class HaxeServerStdio implements HaxeServer {
 			var bytesRemaining = 0;
 
 			while(true) {
-
 				if (bytesRemaining <= 0) {
-					// trace('Waiting for message');
 					var lengthHeader = haxe.io.Bytes.ofData(pipe.read(4));
 					if (lengthHeader == null || lengthHeader.length != 4) {
-						// pipe closed
-						break;
+						break; // pipe finished
 					}
 					bytesRemaining = lengthHeader.getInt32(0);
-					// trace('Message start, $bytesRemaining bytes');
 				}
 
 				var messageBytes = haxe.io.Bytes.ofData(pipe.read(bytesRemaining));
-				// trace('Read ${messageBytes.length} "${messageBytes.toString()}"');
 
 				if  (messageBytes == null || messageBytes.length != bytesRemaining) {
-					// pipe closed
-					break;
+					break; // pipe finished
 				}
 
 				bytesRemaining -= messageBytes.length;
@@ -264,7 +287,6 @@ class HaxeServerStdio implements HaxeServer {
 			}
 
 			pipe.close();
-			trace('MessageReaderThread closed');
 		}
 
 		var queue = new Queue();
