@@ -1,14 +1,14 @@
 # Todo
+- Better completion scoping – we don't want haxe-server completion when writing method names for example
+	- We can support structure completion by modifying the syntax to mark the scope when we're in a structure (see https://github.com/HaxeFoundation/haxe/blob/master/tests/display/src/cases/StructureCompletion.hx)
+- Keyword completion, this, super, etc
 - Hover on symbol show show type and documentation
 - Speed up completions by catching on_modified_async, by default this is 50ms before on_query_completions is fired
 	- Be sure to check the value of auto_complete_delay to verify if it's worth it
 - Full build before query for faster completion
 - Hand display when file path is null
-- Kill processes when plugin unloaded?
 - Faster completion:
 	https://github.com/vshaxe/vshaxe/wiki/Completion-Cache
-- What happens if a view changes syntax so it's no longer a haxe file?
-	- Use scope rather than extension
 - Function argument completion (see TypeScript plugin for good implementation)
 - Support syntax highlighting and completion in string interpolation '${...}'
 - Build and update errors as the file is changed but use more minimalistic error display
@@ -46,6 +46,7 @@
 
 # Haxe Bugs
 - Python .exitCode(false) should be asynchronous but instead blocks the thread on long processes. This is because reading the stdout/stderr is a blocking operation. Solution is available here https://stackoverflow.com/questions/375427/non-blocking-read-on-a-subprocess-pipe-in-python
+	- Not trivial to solve - the readline approach is ok but fails if the pipe isn't flushed with \n (see HaxeServerStdio)
 - Python missing mkstemp and others in python.lib.Tempfile
 - Python missing fdopen
 - https://api.haxe.org/python/lib/io/IOBase.html seek whence should be optional
