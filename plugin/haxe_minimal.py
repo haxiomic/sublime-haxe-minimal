@@ -368,7 +368,7 @@ class HaxeServerStdio:
         sys = python_lib_Sys
         moduleNames = Reflect.field(sys,"builtin_module_names")
         isPosix = (python_internal_ArrayImpl.indexOf(list(moduleNames),"posix",None) != -1)
-        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 83, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 82, 'className': "HaxeServerStdio", 'methodName': "start"}))
         args1 = (["haxe", "--wait", "stdio"] + args)
         o = _hx_AnonObject({'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE, 'stdin': python_lib_Subprocess.PIPE, 'close_fds': isPosix})
         Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
@@ -391,7 +391,7 @@ class HaxeServerStdio:
             raise _HxException(((("Haxe server failed to start: (" + Std.string(exitCode)) + ") ") + ("null" if errorMessage is None else errorMessage)))
         self.errQueue = HaxeServerStdio.createServerMessageQueue(self.process.stderr)
         haxeVersionString = self.execute("-version",1.5).toString()
-        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 106, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 105, 'className': "HaxeServerStdio", 'methodName': "start"}))
 
     def restart(self):
         self.terminate()
@@ -399,7 +399,7 @@ class HaxeServerStdio:
 
     def terminate(self):
         if (self.process is not None):
-            haxe_Log.trace("Stopping haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 123, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
+            haxe_Log.trace("Stopping haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 122, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
             self.process.terminate()
         self.process = None
         self.errQueue = None
@@ -564,7 +564,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
             completionLocation = (completionLocation - len(prefix))
         else:
             completionMode = "toplevel"
-        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(completionMode)) + "\""),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 38, 'className': "HaxeView", 'methodName': "on_query_completions"}))
+        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(completionMode)) + "\""),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 43, 'className': "HaxeView", 'methodName': "on_query_completions"}))
         if (completionMode is None):
             return None
         hxml = HaxeProject.getHxmlForView(self.view)
@@ -596,8 +596,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
             maxDisplayLength = 50
             overflowSuffix = " …  "
             completions = list()
-            completionMode1 = completionMode
-            if (completionMode1 == ""):
+            if haxe_xml__Fast_HasNodeAccess_Impl_.resolve(x,"list"):
                 _g = 0
                 _g1 = haxe_xml__Fast_NodeListAccess_Impl_.resolve(haxe_xml__Fast_NodeAccess_Impl_.resolve(x,"list"),"i")
                 while (_g < len(_g1)):
@@ -608,11 +607,20 @@ class HaxeView(sublime_plugin_ViewEventListener):
                     _hx_type = (haxe_xml__Fast_Fast_Impl_.get_innerData(haxe_xml__Fast_NodeAccess_Impl_.resolve(item,"t")) if (haxe_xml__Fast_HasNodeAccess_Impl_.resolve(item,"t")) else "")
                     display = name
                     info = None
-                    if (_hx_type != ""):
-                        info = _hx_type
+                    kind1 = kind
+                    _hx_local_2 = len(kind1)
+                    if (_hx_local_2 == 3):
+                        if (kind1 == "var"):
+                            info = _hx_type
+                        else:
+                            info = kind
+                    elif (_hx_local_2 == 6):
+                        if (kind1 == "method"):
+                            info = _hx_type
+                        else:
+                            info = kind
                     else:
-                        _hx_str = ("" if ((0 >= len(name))) else name[0])
-                        info = ("class" if ((_hx_str.upper() == _hx_str)) else "module")
+                        info = kind
                     completion = name
                     if (kind == "method"):
                         func = HaxeView.parseFunctionSignature(_hx_type)
@@ -621,29 +629,29 @@ class HaxeView(sublime_plugin_ViewEventListener):
                             if (len(_this) != 0):
                                 _this.pop(0)
                         _this1 = func.parameters
-                        def _hx_local_3():
-                            def _hx_local_2(p):
-                                return ((("" + HxOverrides.stringOrNull(p.name)) + ": ") + HxOverrides.stringOrNull(p.type))
-                            return _hx_local_2
-                        _this2 = list(map(_hx_local_3(),_this1))
+                        def _hx_local_4():
+                            def _hx_local_3(p):
+                                return ((("" + HxOverrides.stringOrNull(p.name)) + ":") + HxOverrides.stringOrNull(p.type))
+                            return _hx_local_3
+                        _this2 = list(map(_hx_local_4(),_this1))
                         parametersFormatted = ", ".join([python_Boot.toString1(x1,'') for x1 in _this2])
                         info1 = func.returnType
-                        display1 = ((((("" + ("null" if name is None else name)) + "( ") + ("null" if parametersFormatted is None else parametersFormatted)) + " )") if ((len(func.parameters) > 0)) else (("" + ("null" if name is None else name)) + "()"))
+                        display1 = ((((("" + ("null" if name is None else name)) + "(") + ("null" if parametersFormatted is None else parametersFormatted)) + ")") if ((len(func.parameters) > 0)) else (("" + ("null" if name is None else name)) + "()"))
                         i = [1]
                         _this3 = func.parameters
-                        def _hx_local_9(i1):
-                            def _hx_local_4(p1):
+                        def _hx_local_10(i1):
+                            def _hx_local_5(p1):
                                 nameString = ((":" + HxOverrides.stringOrNull(p1.name)) if ((p1.name is not None)) else "")
-                                def _hx_local_8():
-                                    _hx_local_5 = i1
-                                    _hx_local_6 = 0
-                                    _hx_local_7 = (_hx_local_5[_hx_local_6] if _hx_local_6 >= 0 and _hx_local_6 < len(_hx_local_5) else None)
-                                    python_internal_ArrayImpl._set(_hx_local_5, _hx_local_6, (_hx_local_7 + 1))
-                                    return _hx_local_7
-                                snippetArguments1 = ("${" + Std.string(_hx_local_8()))
+                                def _hx_local_9():
+                                    _hx_local_6 = i1
+                                    _hx_local_7 = 0
+                                    _hx_local_8 = (_hx_local_6[_hx_local_7] if _hx_local_7 >= 0 and _hx_local_7 < len(_hx_local_6) else None)
+                                    python_internal_ArrayImpl._set(_hx_local_6, _hx_local_7, (_hx_local_8 + 1))
+                                    return _hx_local_8
+                                snippetArguments1 = ("${" + Std.string(_hx_local_9()))
                                 return ((("null" if snippetArguments1 is None else snippetArguments1) + ("null" if nameString is None else nameString)) + "}")
-                            return _hx_local_4
-                        snippetArguments = list(map(_hx_local_9(i),_this3))
+                            return _hx_local_5
+                        snippetArguments = list(map(_hx_local_10(i),_this3))
                         completion1 = (((("" + ("null" if name is None else name)) + "(") + HxOverrides.stringOrNull(", ".join([python_Boot.toString1(x1,'') for x1 in snippetArguments]))) + ")")
                         c_info = info1
                         c_display = display1
@@ -651,51 +659,78 @@ class HaxeView(sublime_plugin_ViewEventListener):
                         display = c_display
                         info = c_info
                         completion = c_completion
-                    completions.append(_hx_AnonObject({'display': display, 'info': info, 'completion': completion}))
-            elif (completionMode1 == "toplevel"):
+                    tmp = completions.append
+                    tmp1 = None
+                    kind2 = kind
+                    _hx_local_11 = len(kind2)
+                    if (_hx_local_11 == 4):
+                        if (kind2 == "type"):
+                            tmp1 = 3
+                        else:
+                            tmp1 = 0
+                    elif (_hx_local_11 == 7):
+                        if (kind2 == "package"):
+                            tmp1 = 4
+                        else:
+                            tmp1 = 0
+                    elif (_hx_local_11 == 3):
+                        if (kind2 == "var"):
+                            tmp1 = 2
+                        else:
+                            tmp1 = 0
+                    elif (_hx_local_11 == 6):
+                        if (kind2 == "method"):
+                            tmp1 = 1
+                        else:
+                            tmp1 = 0
+                    else:
+                        tmp1 = 0
+                    tmp(_hx_AnonObject({'display': display, 'info': info, 'completion': completion, 'kind': tmp1}))
+            elif haxe_xml__Fast_HasNodeAccess_Impl_.resolve(x,"il"):
                 _g2 = 0
                 _g11 = haxe_xml__Fast_NodeListAccess_Impl_.resolve(haxe_xml__Fast_NodeAccess_Impl_.resolve(x,"il"),"i")
                 while (_g2 < len(_g11)):
                     item1 = (_g11[_g2] if _g2 >= 0 and _g2 < len(_g11) else None)
                     _g2 = (_g2 + 1)
                     name1 = haxe_xml__Fast_Fast_Impl_.get_innerData(item1)
-                    kind1 = haxe_xml__Fast_AttribAccess_Impl_.resolve(item1,"k")
+                    kind3 = haxe_xml__Fast_AttribAccess_Impl_.resolve(item1,"k")
                     type1 = (haxe_xml__Fast_AttribAccess_Impl_.resolve(item1,"t") if (haxe_xml__Fast_HasAttribAccess_Impl_.resolve(item1,"t")) else None)
                     path = (haxe_xml__Fast_AttribAccess_Impl_.resolve(item1,"p") if (haxe_xml__Fast_HasAttribAccess_Impl_.resolve(item1,"p")) else None)
                     display2 = name1
-                    info2 = (type1 if ((type1 is not None)) else kind1)
+                    info2 = (type1 if ((type1 is not None)) else kind3)
                     completion2 = name1
                     if (type1 is not None):
                         t = HaxeView.parseFunctionSignature(type1)
                         if (len(t.parameters) > 0):
+                            kind3 = "method"
                             if ((t.parameters[0] if 0 < len(t.parameters) else None).type == "Void"):
                                 _this4 = t.parameters
                                 if (len(_this4) != 0):
                                     _this4.pop(0)
                             _this5 = t.parameters
-                            def _hx_local_12():
-                                def _hx_local_11(p2):
-                                    return ((("" + HxOverrides.stringOrNull(p2.name)) + ": ") + HxOverrides.stringOrNull(p2.type))
-                                return _hx_local_11
-                            _this6 = list(map(_hx_local_12(),_this5))
+                            def _hx_local_14():
+                                def _hx_local_13(p2):
+                                    return ((("" + HxOverrides.stringOrNull(p2.name)) + ":") + HxOverrides.stringOrNull(p2.type))
+                                return _hx_local_13
+                            _this6 = list(map(_hx_local_14(),_this5))
                             parametersFormatted1 = ", ".join([python_Boot.toString1(x1,'') for x1 in _this6])
                             info3 = t.returnType
-                            display3 = ((((("" + ("null" if name1 is None else name1)) + "( ") + ("null" if parametersFormatted1 is None else parametersFormatted1)) + " )") if ((len(t.parameters) > 0)) else (("" + ("null" if name1 is None else name1)) + "()"))
+                            display3 = ((((("" + ("null" if name1 is None else name1)) + "(") + ("null" if parametersFormatted1 is None else parametersFormatted1)) + ")") if ((len(t.parameters) > 0)) else (("" + ("null" if name1 is None else name1)) + "()"))
                             i2 = [1]
                             _this7 = t.parameters
-                            def _hx_local_18(i3):
-                                def _hx_local_13(p3):
+                            def _hx_local_20(i3):
+                                def _hx_local_15(p3):
                                     nameString1 = ((":" + HxOverrides.stringOrNull(p3.name)) if ((p3.name is not None)) else "")
-                                    def _hx_local_17():
-                                        _hx_local_14 = i3
-                                        _hx_local_15 = 0
-                                        _hx_local_16 = (_hx_local_14[_hx_local_15] if _hx_local_15 >= 0 and _hx_local_15 < len(_hx_local_14) else None)
-                                        python_internal_ArrayImpl._set(_hx_local_14, _hx_local_15, (_hx_local_16 + 1))
-                                        return _hx_local_16
-                                    snippetArguments3 = ("${" + Std.string(_hx_local_17()))
+                                    def _hx_local_19():
+                                        _hx_local_16 = i3
+                                        _hx_local_17 = 0
+                                        _hx_local_18 = (_hx_local_16[_hx_local_17] if _hx_local_17 >= 0 and _hx_local_17 < len(_hx_local_16) else None)
+                                        python_internal_ArrayImpl._set(_hx_local_16, _hx_local_17, (_hx_local_18 + 1))
+                                        return _hx_local_18
+                                    snippetArguments3 = ("${" + Std.string(_hx_local_19()))
                                     return ((("null" if snippetArguments3 is None else snippetArguments3) + ("null" if nameString1 is None else nameString1)) + "}")
-                                return _hx_local_13
-                            snippetArguments2 = list(map(_hx_local_18(i2),_this7))
+                                return _hx_local_15
+                            snippetArguments2 = list(map(_hx_local_20(i2),_this7))
                             completion3 = (((("" + ("null" if name1 is None else name1)) + "(") + HxOverrides.stringOrNull(", ".join([python_Boot.toString1(x1,'') for x1 in snippetArguments2]))) + ")")
                             c_info1 = info3
                             c_display1 = display3
@@ -703,16 +738,61 @@ class HaxeView(sublime_plugin_ViewEventListener):
                             display2 = c_display1
                             info2 = c_info1
                             completion2 = c_completion1
-                    completions.append(_hx_AnonObject({'display': display2, 'info': info2, 'completion': completion2}))
-            else:
-                haxe_Log.trace(("Unhandled completion mode " + Std.string(completionMode)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 147, 'className': "HaxeView", 'methodName': "on_query_completions"}))
-            def _hx_local_19(c):
+                        else:
+                            kind3 = "var"
+                    tmp2 = completions.append
+                    tmp3 = None
+                    if (kind3 is None):
+                        tmp3 = 0
+                    else:
+                        kind4 = kind3
+                        _hx_local_21 = len(kind4)
+                        if (_hx_local_21 == 4):
+                            if (kind4 == "type"):
+                                tmp3 = 3
+                            else:
+                                tmp3 = 0
+                        elif (_hx_local_21 == 7):
+                            if (kind4 == "package"):
+                                tmp3 = 4
+                            else:
+                                tmp3 = 0
+                        elif (_hx_local_21 == 3):
+                            if (kind4 == "var"):
+                                tmp3 = 2
+                            else:
+                                tmp3 = 0
+                        elif (_hx_local_21 == 6):
+                            if (kind4 == "method"):
+                                tmp3 = 1
+                            else:
+                                tmp3 = 0
+                        else:
+                            tmp3 = 0
+                    tmp2(_hx_AnonObject({'display': display2, 'info': info2, 'completion': completion2, 'kind': tmp3}))
+            def _hx_local_22(c):
                 if ((c.info == "Unknown<0>") or ((c.info == "Unknown0"))):
                     c.info = "•"
+                _g3 = c.kind
+                sublimeCompletions1 = None
+                _g4 = _g3
+                if (_g4 == 0):
+                    sublimeCompletions1 = " "
+                elif (_g4 == 1):
+                    sublimeCompletions1 = "ƒ"
+                elif (_g4 == 2):
+                    sublimeCompletions1 = "ᵥ"
+                elif (_g4 == 3):
+                    sublimeCompletions1 = "ᴛ"
+                elif (_g4 == 4):
+                    sublimeCompletions1 = "."
+                else:
+                    pass
+                c.display = ((HxOverrides.stringOrNull(sublimeCompletions1) + " ") + HxOverrides.stringOrNull(c.display))
                 if (len(c.display) > ((maxDisplayLength - len(overflowSuffix)))):
                     c.display = (HxOverrides.stringOrNull(HxString.substr(c.display,0,(maxDisplayLength - len(overflowSuffix)))) + ("null" if overflowSuffix is None else overflowSuffix))
                 return [(HxOverrides.stringOrNull(c.display) + HxOverrides.stringOrNull(((("\t" + HxOverrides.stringOrNull(c.info)) if ((c.info is not None)) else "")))), c.completion]
-            sublimeCompletions = list(map(_hx_local_19,completions))
+            sublimeCompletions = list(map(_hx_local_22,completions))
             self.view.erase_status("haxe_status")
             return (sublimeCompletions, sublime_Sublime.INHIBIT_WORD_COMPLETIONS)
         else:
@@ -743,9 +823,18 @@ class HaxeView(sublime_plugin_ViewEventListener):
         completionMode = "type"
         details = True
         result = haxeServer.display(hxml,self.view.file_name(),point,completionMode,details,viewContent)
-        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 204, 'className': "HaxeView", 'methodName': "on_hover"}))
-        isVariableScope = self.view.match_selector(point,"variable")
-        haxe_Log.trace(("isVariableScope " + Std.string(isVariableScope)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 207, 'className': "HaxeView", 'methodName': "on_hover"}))
+        if (not result.hasError):
+            x = Xml.parse(result.output)
+            if ((x.nodeType != Xml.Document) and ((x.nodeType != Xml.Element))):
+                raise _HxException(("Invalid nodeType " + Std.string(x.nodeType)))
+            this1 = x
+            x1 = this1
+            typeNode = haxe_xml__Fast_NodeAccess_Impl_.resolve(x1,"type")
+            docs = (haxe_xml__Fast_AttribAccess_Impl_.resolve(typeNode,"d") if (haxe_xml__Fast_HasAttribAccess_Impl_.resolve(typeNode,"d")) else None)
+            _hx_type = haxe_xml__Fast_Fast_Impl_.get_innerHTML(typeNode)
+            docs = ((("<p>" + HxOverrides.stringOrNull(StringTools.replace(StringTools.trim(docs),"\n","<br>"))) + "</p>") if ((docs is not None)) else "")
+            self.view.show_popup(((("<code>" + ("null" if _hx_type is None else _hx_type)) + "</code>") + ("null" if docs is None else docs)),(sublime_Sublime.HIDE_ON_MOUSE_MOVE_AWAY | sublime_Sublime.COOPERATE_WITH_AUTO_COMPLETE),point,700)
+        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 244, 'className': "HaxeView", 'methodName': "on_hover"}))
 
     @staticmethod
     def is_applicable(settings):
@@ -766,11 +855,11 @@ class HaxeView(sublime_plugin_ViewEventListener):
             if (len(_this) != 0):
                 _this.pop(0)
         def _hx_local_0(p):
-            return ((("" + HxOverrides.stringOrNull(p.name)) + ": ") + HxOverrides.stringOrNull(p.type))
+            return ((("" + HxOverrides.stringOrNull(p.name)) + ":") + HxOverrides.stringOrNull(p.type))
         _this1 = list(map(_hx_local_0,func.parameters))
         parametersFormatted = ", ".join([python_Boot.toString1(x1,'') for x1 in _this1])
         info = func.returnType
-        display = ((((("" + ("null" if name is None else name)) + "( ") + ("null" if parametersFormatted is None else parametersFormatted)) + " )") if ((len(func.parameters) > 0)) else (("" + ("null" if name is None else name)) + "()"))
+        display = ((((("" + ("null" if name is None else name)) + "(") + ("null" if parametersFormatted is None else parametersFormatted)) + ")") if ((len(func.parameters) > 0)) else (("" + ("null" if name is None else name)) + "()"))
         i = 1
         def _hx_local_2(p1):
             nonlocal i
@@ -788,15 +877,14 @@ class HaxeView(sublime_plugin_ViewEventListener):
         arrowMarker = "\x01"
         signature = StringTools.replace(signature,"->",arrowMarker)
         parts = list()
-        i = 0
         buffer = ""
         level = 0
         _g1 = 0
         _g = len(signature)
         while (_g1 < _g):
-            i1 = _g1
+            i = _g1
             _g1 = (_g1 + 1)
-            c = ("" if (((i1 < 0) or ((i1 >= len(signature))))) else signature[i1])
+            c = ("" if (((i < 0) or ((i >= len(signature))))) else signature[i])
             c1 = c
             if (((c1 == "{") or ((c1 == "<"))) or ((c1 == "("))):
                 level = (level + 1)
@@ -1805,7 +1893,7 @@ haxe_xml__Fast_NodeListAccess_Impl_._hx_class = haxe_xml__Fast_NodeListAccess_Im
 class haxe_xml__Fast_Fast_Impl_:
     _hx_class_name = "haxe.xml._Fast.Fast_Impl_"
     __slots__ = ()
-    _hx_statics = ["get_innerData"]
+    _hx_statics = ["get_innerData", "get_innerHTML"]
     x = None
     name = None
     innerData = None
@@ -1878,6 +1966,17 @@ class haxe_xml__Fast_Fast_Impl_:
         if ((v.nodeType == Xml.Document) or ((v.nodeType == Xml.Element))):
             raise _HxException(("Bad node type, unexpected " + Std.string(v.nodeType)))
         return v.nodeValue
+
+    @staticmethod
+    def get_innerHTML(this1):
+        s_b = python_lib_io_StringIO()
+        if ((this1.nodeType != Xml.Document) and ((this1.nodeType != Xml.Element))):
+            raise _HxException(("Bad node type, expected Element or Document but found " + Std.string(this1.nodeType)))
+        x = python_HaxeIterator(this1.children.__iter__())
+        while x.hasNext():
+            x1 = x.next()
+            s_b.write(Std.string(haxe_xml_Printer.print(x1)))
+        return s_b.getvalue()
 haxe_xml__Fast_Fast_Impl_._hx_class = haxe_xml__Fast_Fast_Impl_
 
 

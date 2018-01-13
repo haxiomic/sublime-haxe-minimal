@@ -24,6 +24,7 @@ typedef AsyncHandle = {
 	var Position = 'position';
 	var Toplevel = 'toplevel';
 	var Type = 'type';
+	var Signature = 'signature';
 	var Package = 'package';
 
 	// Unknown modes, see tests
