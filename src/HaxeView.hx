@@ -1,5 +1,13 @@
 using StringTools;
 
+@:enum abstract EntryKind(Int) {
+	var Unknown = 0;
+	var Method = 1;
+	var Var = 2;
+	var Type = 3;
+	var Package = 4;
+}
+
 class HaxeView extends sublime_plugin.ViewEventListener {
 
 	static inline var HAXE_STATUS = 'haxe_status';
@@ -80,73 +88,97 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			var maxDisplayLength = 50;
 			var overflowSuffix = ' …  ';
 
-			var completions = new Array<{display: String, info: String, completion: String}>();
+			var completions = new Array<{display: String, info: String, completion: String, kind: EntryKind}>();
 
-			switch completionMode {
+			if (x.hasNode.list) {
+				for (item in x.node.list.nodes.i) {
+					var name = item.att.n;
+					var kind = item.has.k ? item.att.k : '';// var, method, type
+					var type = item.hasNode.t ? item.node.t.innerData : '';
 
-				case Field:
-					for (item in x.node.list.nodes.i) {
-						var name = item.att.n;
-						var kind = item.has.k ? item.att.k : '';// var or method
-						var type = item.hasNode.t ? item.node.t.innerData : '';
+					// defaults
+					var display = name;
+					var info = switch kind {
+						case 'var', 'method': type;
+						default: kind;
+					};
+					var completion = name;
 
-						// defaults
-						var display = name;
-						var info = type != '' ? type : (isUpperCase(name.charAt(0)) ? 'class' : 'module');
-						var completion = name;
-						
-						switch kind {
-							case 'method':
-								// process for readability
-								var c = generateFunctionCompletion(name, parseFunctionSignature(type));
-								display = c.display;
-								info = c.info;
-								completion = c.completion;
-						}
-
-						completions.push({
-							display: display,
-							info: info,
-							completion: completion
-						});
+					switch kind {
+						case 'method':
+							// process for readability
+							var c = generateFunctionCompletion(name, parseFunctionSignature(type));
+							display = c.display;
+							info = c.info;
+							completion = c.completion;
 					}
 
-				case Toplevel:
-					for (item in x.node.il.nodes.i) {
-						var name = item.innerData;
-						var kind = item.att.k;
-						var type = item.has.t ? item.att.t : null;
-						var path = item.has.p ? item.att.p : null;
-
-						var display = name;
-						var info = type != null ? type : kind;
-						var completion = name;
-
-						// check if type represents a function, if so, process for readability
-						if (type != null) {
-							var t = parseFunctionSignature(type);
-							if (t.parameters.length > 0) { // method type
-								var c = generateFunctionCompletion(name, t);
-								display = c.display;
-								info = c.info;
-								completion = c.completion;
-							}
+					completions.push({
+						display: display,
+						info: info,
+						completion: completion,
+						kind: switch kind {
+							case 'var': Var;
+							case 'method': Method;
+							case 'type': Type;
+							case 'package': Package;
+							default: Unknown;
 						}
+					});
+				}
+			} else if (x.hasNode.il) {
+				for (item in x.node.il.nodes.i) {
+					var name = item.innerData;
+					var kind = item.att.k;
+					var type = item.has.t ? item.att.t : null;
+					var path = item.has.p ? item.att.p : null;
 
-						completions.push({
-							display: display,
-							info: info,
-							completion: completion
-						});
+					var display = name;
+					var info = type != null ? type : kind;
+					var completion = name;
+
+					// check if type represents a function, if so, process for readability
+					if (type != null) {
+						var t = parseFunctionSignature(type);
+						if (t.parameters.length > 0) { // method type
+							kind = 'method';
+							var c = generateFunctionCompletion(name, t);
+							display = c.display;
+							info = c.info;
+							completion = c.completion;
+						} else {
+							kind = 'var';
+						}
 					}
 
-				default:
-					trace('Unhandled completion mode $completionMode');
+					completions.push({
+						display: display,
+						info: info,
+						completion: completion,
+						kind: switch kind {
+							case null: Unknown;
+							case 'var': Var;
+							case 'method': Method;
+							case 'type': Type;
+							case 'package': Package;
+							default: Unknown;
+						}
+					});
+				}
+
 			}
 
 			var sublimeCompletions = completions.map(function(c) {
 				// replace Unknown with • to reduce clutter
 				if (c.info == 'Unknown<0>' || c.info == 'Unknown0') c.info = '•';
+				// add kind prefix
+				c.display = (switch c.kind {
+					case Unknown: ' ';
+					case Method: 'ƒ';//𝖿𝘍ƒ𝑓
+					case Var: 'ᵥ';//𝘷𝘝ᵥ
+					case Type: 'ᴛ';//ᴛ
+					case Package: '.';
+				}) + ' ' + c.display;
 				// clamp string length
 				if (c.display.length > (maxDisplayLength - overflowSuffix.length)) {
 					c.display = c.display.substr(0, (maxDisplayLength - overflowSuffix.length)) + overflowSuffix;
@@ -179,7 +211,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		}
 	}
 
-	override function on_hover(point: Int, hover_zone:Int) {
+	override function on_hover(point: Int, hover_zone: Int) {
 		if (hover_zone != sublime.Sublime.HOVER_TEXT) return;
 		var scope = view.scope_name(point);
 
@@ -198,10 +230,18 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var details = true;
 		var result = haxeServer.display(hxml, view.file_name(), point, completionMode, details, viewContent);
 
-		trace('on_hover "$scope" $result');
+		if (!result.hasError) {
+			var x = new haxe.xml.Fast(Xml.parse(result.output));
+			var typeNode = x.node.type;
+			var docs = typeNode.has.d ? typeNode.att.d : null;
+			var type = typeNode.innerHTML;
 
-		var isVariableScope = view.match_selector(point, 'variable');
-		trace('isVariableScope $isVariableScope');
+			docs = docs != null ? '<p>' + docs.trim().replace('\n', '<br>') + '</p>' : '';
+
+			view.show_popup('<code>$type</code>$docs', sublime.Sublime.HIDE_ON_MOUSE_MOVE_AWAY | sublime.Sublime.COOPERATE_WITH_AUTO_COMPLETE, untyped point, 700);
+		}
+
+		trace('on_hover "$scope" $result');
 	}
 
 	static function is_applicable(settings: sublime.Settings) {
@@ -224,10 +264,10 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		}
 
 		// format parameters
-		var parametersFormatted = func.parameters.map(function(p) return '${p.name}: ${p.type}').join(', ');
+		var parametersFormatted = func.parameters.map(function(p) return '${p.name}:${p.type}').join(', ');
 
 		var info = func.returnType;
-		var display = func.parameters.length > 0 ? '$name( $parametersFormatted )' : '$name()';
+		var display = func.parameters.length > 0 ? '$name($parametersFormatted)' : '$name()';
 
 		var i = 1;
 		var snippetArguments = func.parameters.map(
