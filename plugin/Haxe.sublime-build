@@ -1,6 +1,6 @@
 {
 	"target": "haxe_build",
-	"selector": "source.hxml, source.haxe.2",
+	"selector": "source.hxml, source.hx",
 	// "cancel": {"kill": true},
 	"variants": [
 		{

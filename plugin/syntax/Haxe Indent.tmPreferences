@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>name</key>
+	<string>Haxe Indent</string>
+	<key>scope</key>
+	<string>source.hx</string>
+	<key>settings</key>
+	<dict>
+		<key>increaseIndentPattern</key>
+		<string>^.*\{[^}"']*$</string>
+		<key>decreaseIndentPattern</key>
+		<string>^(.*\*/)?\s*\}.*$</string>
+	</dict>
+</dict>
+</plist>
