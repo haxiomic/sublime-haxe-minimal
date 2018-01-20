@@ -11,6 +11,7 @@
 	https://github.com/vshaxe/vshaxe/wiki/Completion-Cache
 - Function argument completion (see TypeScript plugin for good implementation)
 - Support syntax highlighting and completion in string interpolation '${...}'
+	- Completion could be improved by injecting a closing } when one isn't present, i.e., currently ${this.| fails but ${this.|} works
 - Build and update errors as the file is changed but use more minimalistic error display
 - Create an error console panel with clickable errors like it used to have
 	- We can support colored output by setting the synax of the panel and using hidden characters – maybe best to use the colored ascii plugin's syntax file, maybe by making SublimeANSI a package dependency
@@ -26,6 +27,7 @@
 - Fix weird indent:
 	weird_indent({
 		});
+	see http://docs.sublimetext.info/en/latest/reference/metadata.html?highlight=indentation
 - Better clear errors
 	- When a compile completes successfully, errors on views that were involved in the build should also be cleared
 	- When a compile error occurs, all the views involved can be considered a compile-error group
