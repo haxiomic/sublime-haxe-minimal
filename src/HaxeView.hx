@@ -165,7 +165,6 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 						}
 					});
 				}
-
 			}
 
 			var sublimeCompletions = completions.map(function(c) {
