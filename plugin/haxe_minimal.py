@@ -156,17 +156,15 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
         self.clearResultsPanel()
         hxmlContent = None
         _g = view.settings().get("syntax")
-        _g1 = _g
-        if (_g1 == "Packages/Haxe Minimal/syntax/haxe.tmLanguage"):
+        if (_g == "Packages/Haxe Minimal/syntax/haxe.tmLanguage"):
             hxmlContent = HaxeProject.getHxmlForView(view)
-        elif (_g1 == "Packages/Haxe Minimal/syntax/hxml.tmLanguage"):
+        elif (_g == "Packages/Haxe Minimal/syntax/hxml.tmLanguage"):
             hxmlPath = view.file_name()
             if (hxmlPath is None):
                 self.appendPanel("Could not build because the file hasn't been saved")
                 self.showResultsPanel()
                 return
-            cwd = haxe_io_Path.directory(hxmlPath)
-            hxmlContent = ((("--cwd \"" + ("null" if cwd is None else cwd)) + "\"\n") + HxOverrides.stringOrNull(sys_io_File.getContent(hxmlPath)))
+            hxmlContent = ((("--cwd \"" + HxOverrides.stringOrNull(haxe_io_Path.directory(hxmlPath))) + "\"\n") + HxOverrides.stringOrNull(sys_io_File.getContent(hxmlPath)))
         else:
             pass
         if (hxmlContent is None):
@@ -175,13 +173,9 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
             return
         self.appendPanel("Build in progress\n")
         haxeServer = None
-        if (0 == 0):
-            if (HaxeProject.haxeServerStdioHandle is None):
-                HaxeProject.haxeServerStdioHandle = HaxeServerStdio()
-            haxeServer = HaxeProject.haxeServerStdioHandle
-        else:
-            raise _HxException("Not yet supported")
-        haxeServer1 = haxeServer
+        if (HaxeProject.haxeServerStdioHandle is None):
+            HaxeProject.haxeServerStdioHandle = HaxeServerStdio()
+        haxeServer = HaxeProject.haxeServerStdioHandle
         def _hx_local_0(result):
             if (not result.hasError):
                 _gthis.appendPanel("\nBuild complete\n")
@@ -197,7 +191,7 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
         def _hx_local_1(log):
             _gthis.appendPanel(log)
             _gthis.showResultsPanel()
-        self.buildHandle = haxeServer1.buildAsync(hxmlContent,_hx_local_0,_hx_local_1)
+        self.buildHandle = haxeServer.buildAsync(hxmlContent,_hx_local_0,_hx_local_1)
 
     def description(self,args = None):
         if ((args is not None) and ((args.get("kill") == True))):
@@ -293,27 +287,23 @@ class HaxeProject:
     def getHxmlForView(view):
         hxmlPath = HaxeProject.findAssociatedHxmlPath(view)
         if (hxmlPath is not None):
-            cwd = haxe_io_Path.directory(hxmlPath)
-            return ((("--cwd \"" + ("null" if cwd is None else cwd)) + "\"\n") + HxOverrides.stringOrNull(sys_io_File.getContent(hxmlPath)))
+            return ((("--cwd \"" + HxOverrides.stringOrNull(haxe_io_Path.directory(hxmlPath))) + "\"\n") + HxOverrides.stringOrNull(sys_io_File.getContent(hxmlPath)))
         return HaxeProject.generateHxmlForView(view)
 
     @staticmethod
     def generateHxmlForView(view):
         hxml = "\n--no-output"
         if (view.file_name() is not None):
-            hxml = (("null" if hxml is None else hxml) + HxOverrides.stringOrNull((("\n--cwd " + HxOverrides.stringOrNull(haxe_io_Path.directory(view.file_name()))))))
+            hxml = ("\n--no-output" + HxOverrides.stringOrNull((("\n--cwd " + HxOverrides.stringOrNull(haxe_io_Path.directory(view.file_name()))))))
             hxml = (("null" if hxml is None else hxml) + HxOverrides.stringOrNull((("\n" + HxOverrides.stringOrNull(haxe_io_Path.withoutDirectory(view.file_name()))))))
         return hxml
 
     @staticmethod
     def findAssociatedHxmlPath(view):
         if (view.file_name() is not None):
-            maxDepth = 4
             searchDir = haxe_io_Path.directory(view.file_name())
             _g1 = 0
-            _g = maxDepth
-            while (_g1 < _g):
-                i = _g1
+            while (_g1 < 4):
                 _g1 = (_g1 + 1)
                 if (searchDir == ""):
                     break
@@ -411,8 +401,7 @@ class HaxeServerStdio:
             result = _gthis.build(hxml,handleLog,timeout_s)
             if (not cancelled):
                 onComplete(result)
-        buildCallback = _hx_local_0
-        buildThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': buildCallback})))
+        buildThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': _hx_local_0})))
         buildThread.start()
         def _hx_local_2():
             def _hx_local_1():
@@ -422,17 +411,15 @@ class HaxeServerStdio:
         return _hx_local_2()
 
     def display(self,hxml,filePath,location,mode,details,fileContent = None):
-        timeout_s = 1.5
-        modeString = ("" if ((mode is None)) else ("@" + ("null" if mode is None else mode)))
         displayDirectives = ""
         if details:
-            displayDirectives = (("null" if displayDirectives is None else displayDirectives) + "\n-D display-details")
+            displayDirectives = "\n-D display-details"
         if (fileContent is not None):
             displayDirectives = (("null" if displayDirectives is None else displayDirectives) + "\n-D display-stdin")
-        displayDirectives = (("null" if displayDirectives is None else displayDirectives) + HxOverrides.stringOrNull(((((("\n--display \"" + ("null" if filePath is None else filePath)) + "\"@") + Std.string(location)) + ("null" if modeString is None else modeString)))))
+        displayDirectives = (("null" if displayDirectives is None else displayDirectives) + HxOverrides.stringOrNull(((((("\n--display \"" + ("null" if filePath is None else filePath)) + "\"@") + Std.string(location)) + HxOverrides.stringOrNull((("" if ((mode is None)) else ("@" + ("null" if mode is None else mode)))))))))
         if (fileContent is not None):
             displayDirectives = (("null" if displayDirectives is None else displayDirectives) + HxOverrides.stringOrNull(((("\n" + "\x01") + ("null" if fileContent is None else fileContent)))))
-        result = self.execute((("null" if hxml is None else hxml) + ("null" if displayDirectives is None else displayDirectives)),timeout_s).toString()
+        result = self.execute((("null" if hxml is None else hxml) + ("null" if displayDirectives is None else displayDirectives)),1.5).toString()
         hasError = False
         if (((-1 if ((0 >= len(result))) else ord(result[0]))) != ((-1 if ((0 >= len("<"))) else ord("<"[0])))):
             hasError = (result.find("\x02") != -1)
@@ -468,15 +455,13 @@ class HaxeServerStdio:
     def execute(self,hxml,timeout_s = None):
         buffer = haxe_io_BytesBuffer()
         src = haxe_io_Bytes.ofString((("\n" + ("null" if hxml is None else hxml)) + "\n"))
-        b1 = buffer.b
         b2 = src.b
         _g1 = 0
         _g = src.length
         while (_g1 < _g):
             i = _g1
             _g1 = (_g1 + 1)
-            _this = buffer.b
-            _this.append(b2[i])
+            buffer.b.append(b2[i])
         _hx_bytes = buffer.getBytes()
         length = _hx_bytes.length
         payloadBytes = haxe_io_Bytes.alloc((4 + length))
@@ -524,8 +509,7 @@ class HaxeServerStdio:
             pipe1.close()
         enqueueMessages = _hx_local_1
         queue1 = python_lib_Queue()
-        messageReaderThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': enqueueMessages, 'args': tuple([pipe, queue1]), 'daemon': True})))
-        messageReaderThread.start()
+        python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': enqueueMessages, 'args': tuple([pipe, queue1]), 'daemon': True}))).start()
         return queue1
 
 HaxeServerStdio._hx_class = HaxeServerStdio
@@ -797,7 +781,6 @@ class HaxeView(sublime_plugin_ViewEventListener):
             return (sublimeCompletions, sublime_Sublime.INHIBIT_WORD_COMPLETIONS)
         else:
             self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.output)))
-            HaxeView.updateErrors(result.output)
         if (completionMode == ""):
             return ([], (sublime_Sublime.INHIBIT_WORD_COMPLETIONS | sublime_Sublime.INHIBIT_EXPLICIT_COMPLETIONS))
         else:
@@ -863,19 +846,16 @@ class HaxeView(sublime_plugin_ViewEventListener):
         i = 1
         def _hx_local_2(p1):
             nonlocal i
-            nameString = ((":" + HxOverrides.stringOrNull(p1.name)) if ((p1.name is not None)) else "")
             i = (i + 1)
-            return ((("${" + Std.string(((i - 1)))) + ("null" if nameString is None else nameString)) + "}")
+            return ((("${" + Std.string(((i - 1)))) + HxOverrides.stringOrNull((((":" + HxOverrides.stringOrNull(p1.name)) if ((p1.name is not None)) else "")))) + "}")
         snippetArguments = list(map(_hx_local_2,func.parameters))
-        completion = (((("" + ("null" if name is None else name)) + "(") + HxOverrides.stringOrNull(", ".join([python_Boot.toString1(x1,'') for x1 in snippetArguments]))) + ")")
-        return _hx_AnonObject({'info': info, 'display': display, 'completion': completion})
+        return _hx_AnonObject({'info': info, 'display': display, 'completion': (((("" + ("null" if name is None else name)) + "(") + HxOverrides.stringOrNull(", ".join([python_Boot.toString1(x1,'') for x1 in snippetArguments]))) + ")")})
 
     @staticmethod
     def parseFunctionSignature(signature):
         parameters = list()
         returnType = None
-        arrowMarker = "\x01"
-        signature = StringTools.replace(signature,"->",arrowMarker)
+        signature = StringTools.replace(signature,"->","\x01")
         parts = list()
         buffer = ""
         level = 0
@@ -892,17 +872,15 @@ class HaxeView(sublime_plugin_ViewEventListener):
             elif (((c1 == "}") or ((c1 == ">"))) or ((c1 == ")"))):
                 level = (level - 1)
                 buffer = (("null" if buffer is None else buffer) + ("null" if c is None else c))
-            else:
-                c2 = c
-                if (c2 == arrowMarker):
-                    if (level <= 0):
-                        x = StringTools.trim(buffer)
-                        parts.append(x)
-                        buffer = ""
-                    else:
-                        buffer = (("null" if buffer is None else buffer) + "->")
+            elif (c == "\x01"):
+                if (level <= 0):
+                    x = StringTools.trim(buffer)
+                    parts.append(x)
+                    buffer = ""
                 else:
-                    buffer = (("null" if buffer is None else buffer) + ("null" if c is None else c))
+                    buffer = (("null" if buffer is None else buffer) + "->")
+            else:
+                buffer = (("null" if buffer is None else buffer) + ("null" if c is None else c))
         _g2 = 0
         while (_g2 < len(parts)):
             part = (parts[_g2] if _g2 >= 0 and _g2 < len(parts) else None)
@@ -962,8 +940,7 @@ class Std:
             _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
             e = _hx_e1
             try:
-                prefix = HxString.substr(x,0,2).lower()
-                if (prefix == "0x"):
+                if (HxString.substr(x,0,2).lower() == "0x"):
                     return int(x,16)
                 raise _HxException("fail")
             except Exception as _hx_e:
@@ -997,12 +974,10 @@ class Std:
             _g2 = HxString.charCodeAt(c,0)
             if (_g2 is None):
                 break
+            elif (((((((((((_g2 == 57) or ((_g2 == 56))) or ((_g2 == 55))) or ((_g2 == 54))) or ((_g2 == 53))) or ((_g2 == 52))) or ((_g2 == 51))) or ((_g2 == 50))) or ((_g2 == 49))) or ((_g2 == 48))) or ((_g2 == 46))):
+                r = (("null" if r is None else r) + ("null" if c is None else c))
             else:
-                _g21 = _g2
-                if (((((((((((_g21 == 57) or ((_g21 == 56))) or ((_g21 == 55))) or ((_g21 == 54))) or ((_g21 == 53))) or ((_g21 == 52))) or ((_g21 == 51))) or ((_g21 == 50))) or ((_g21 == 49))) or ((_g21 == 48))) or ((_g21 == 46))):
-                    r = (("null" if r is None else r) + ("null" if c is None else c))
-                else:
-                    break
+                break
         return r
 
     @staticmethod
@@ -1039,16 +1014,13 @@ class StringTools:
     @staticmethod
     def htmlEscape(s,quotes = None):
         _this = s.split("&")
-        _this1 = "&amp;".join([python_Boot.toString1(x1,'') for x1 in _this])
-        _this2 = _this1.split("<")
-        _this3 = "&lt;".join([python_Boot.toString1(x1,'') for x1 in _this2])
-        _this4 = _this3.split(">")
-        s = "&gt;".join([python_Boot.toString1(x1,'') for x1 in _this4])
+        _this1 = "&amp;".join([python_Boot.toString1(x1,'') for x1 in _this]).split("<")
+        _this2 = "&lt;".join([python_Boot.toString1(x1,'') for x1 in _this1]).split(">")
+        s = "&gt;".join([python_Boot.toString1(x1,'') for x1 in _this2])
         if quotes:
-            _this5 = s.split("\"")
-            _this6 = "&quot;".join([python_Boot.toString1(x1,'') for x1 in _this5])
-            _this7 = _this6.split("'")
-            return "&#039;".join([python_Boot.toString1(x1,'') for x1 in _this7])
+            _this3 = s.split("\"")
+            _this4 = "&quot;".join([python_Boot.toString1(x1,'') for x1 in _this3]).split("'")
+            return "&#039;".join([python_Boot.toString1(x1,'') for x1 in _this4])
         else:
             return s
 
@@ -1187,13 +1159,11 @@ class Sys:
 
     @staticmethod
     def println(v):
-        _hx_str = Std.string(v)
-        python_Lib.printString((("" + ("null" if _hx_str is None else _hx_str)) + "\n"))
+        python_Lib.printString((("" + Std.string(v)) + "\n"))
 
     @staticmethod
     def args():
-        argv = python_lib_Sys.argv
-        return argv[1:None]
+        return python_lib_Sys.argv[1:None]
 
     @staticmethod
     def getEnv(s):
@@ -1227,21 +1197,19 @@ class Sys:
     @staticmethod
     def systemName():
         _g = python_lib_Sys.platform
-        x = _g
-        if x.startswith("linux"):
+        if _g.startswith("linux"):
             return "Linux"
         else:
-            _g1 = _g
-            _hx_local_0 = len(_g1)
+            _hx_local_0 = len(_g)
             if (_hx_local_0 == 5):
-                if (_g1 == "win32"):
+                if (_g == "win32"):
                     return "Windows"
                 else:
                     raise _HxException("not supported platform")
             elif (_hx_local_0 == 6):
-                if (_g1 == "cygwin"):
+                if (_g == "cygwin"):
                     return "Windows"
-                elif (_g1 == "darwin"):
+                elif (_g == "darwin"):
                     return "Mac"
                 else:
                     raise _HxException("not supported platform")
@@ -1271,10 +1239,9 @@ class Sys:
     def getChar(echo):
         ch = None
         _g = Sys.systemName()
-        _g1 = _g
-        _hx_local_0 = len(_g1)
+        _hx_local_0 = len(_g)
         if (_hx_local_0 == 5):
-            if (_g1 == "Linux"):
+            if (_g == "Linux"):
                 fd = python_lib_Sys.stdin.fileno()
                 old = python_lib_Termios.tcgetattr(fd)
                 fileNo = fd
@@ -1294,10 +1261,9 @@ class Sys:
                     restore()
                     raise _HxException(e)
             else:
-                x1 = _g
-                raise _HxException((("platform " + ("null" if x1 is None else x1)) + " not supported"))
+                raise _HxException((("platform " + ("null" if _g is None else _g)) + " not supported"))
         elif (_hx_local_0 == 3):
-            if (_g1 == "Mac"):
+            if (_g == "Mac"):
                 fd = python_lib_Sys.stdin.fileno()
                 old = python_lib_Termios.tcgetattr(fd)
                 fileNo = fd
@@ -1317,17 +1283,14 @@ class Sys:
                     restore()
                     raise _HxException(e)
             else:
-                x1 = _g
-                raise _HxException((("platform " + ("null" if x1 is None else x1)) + " not supported"))
+                raise _HxException((("platform " + ("null" if _g is None else _g)) + " not supported"))
         elif (_hx_local_0 == 7):
-            if (_g1 == "Windows"):
+            if (_g == "Windows"):
                 ch = HxString.charCodeAt(python_lib_Msvcrt.getch().decode("utf-8"),0)
             else:
-                x1 = _g
-                raise _HxException((("platform " + ("null" if x1 is None else x1)) + " not supported"))
+                raise _HxException((("platform " + ("null" if _g is None else _g)) + " not supported"))
         else:
-            x1 = _g
-            raise _HxException((("platform " + ("null" if x1 is None else x1)) + " not supported"))
+            raise _HxException((("platform " + ("null" if _g is None else _g)) + " not supported"))
         if echo:
             python_Lib.printString(Std.string("".join(map(chr,[ch]))))
         return ch
@@ -1439,16 +1402,14 @@ class Xml:
                 tmp = False
             if tmp:
                 _g.append(child)
-        ret = _g
-        return python_HaxeIterator(ret.__iter__())
+        return python_HaxeIterator(_g.__iter__())
 
     def addChild(self,x):
         if ((self.nodeType != Xml.Document) and ((self.nodeType != Xml.Element))):
             raise _HxException(("Bad node type, expected Element or Document but found " + Std.string(self.nodeType)))
         if (x.parent is not None):
             x.parent.removeChild(x)
-        _this = self.children
-        _this.append(x)
+        self.children.append(x)
         x.parent = self
 
     def removeChild(self,x):
@@ -1536,16 +1497,18 @@ class haxe_Log:
             _g = 0
             _g1 = Reflect.field(infos,"customParams")
             while (_g < len(_g1)):
-                v1 = (_g1[_g] if _g >= 0 and _g < len(_g1) else None)
-                _g = (_g + 1)
+                def _hx_local_1():
+                    nonlocal _g
+                    _hx_local_0 = _g
+                    _g = (_g + 1)
+                    return _hx_local_0
+                v1 = python_internal_ArrayImpl._get(_g1, _hx_local_1())
                 _hx_str = (("null" if _hx_str is None else _hx_str) + ((", " + Std.string(v1))))
         return ((("null" if pstr is None else pstr) + ": ") + ("null" if _hx_str is None else _hx_str))
 
     @staticmethod
     def trace(v,infos = None):
-        _hx_str = haxe_Log.formatOutput(v,infos)
-        str1 = Std.string(_hx_str)
-        python_Lib.printString((("" + ("null" if str1 is None else str1)) + "\n"))
+        python_Lib.printString((("" + Std.string(haxe_Log.formatOutput(v,infos))) + "\n"))
 haxe_Log._hx_class = haxe_Log
 
 
@@ -1735,14 +1698,13 @@ class haxe_io_Path:
 
     @staticmethod
     def normalize(path):
-        slash = "/"
         _this = path.split("\\")
-        path = slash.join([python_Boot.toString1(x1,'') for x1 in _this])
-        if (path == slash):
-            return slash
+        path = "/".join([python_Boot.toString1(x1,'') for x1 in _this])
+        if (path == "/"):
+            return "/"
         target = []
         _g = 0
-        _g1 = (list(path) if ((slash == "")) else path.split(slash))
+        _g1 = path.split("/")
         while (_g < len(_g1)):
             token = (_g1[_g] if _g >= 0 and _g < len(_g1) else None)
             _g = (_g + 1)
@@ -1751,9 +1713,8 @@ class haxe_io_Path:
                     target.pop()
             elif (token != "."):
                 target.append(token)
-        tmp = slash.join([python_Boot.toString1(x1,'') for x1 in target])
-        regex = EReg("([^:])/+","g")
-        result = regex.replace(tmp,("$1" + ("null" if slash is None else slash)))
+        tmp = "/".join([python_Boot.toString1(x1,'') for x1 in target])
+        EReg("([^:])/+","g").replace(tmp,("$1" + "/"))
         acc_b = python_lib_io_StringIO()
         colon = False
         slashes = False
@@ -1768,22 +1729,20 @@ class haxe_io_Path:
                 if (not colon):
                     slashes = True
                 else:
-                    i1 = _g21
                     colon = False
                     if slashes:
                         acc_b.write("/")
                         slashes = False
-                    acc_b.write("".join(map(chr,[i1])))
+                    acc_b.write("".join(map(chr,[_g21])))
             elif (_g22 == 58):
                 acc_b.write(":")
                 colon = True
             else:
-                i2 = _g21
                 colon = False
                 if slashes:
                     acc_b.write("/")
                     slashes = False
-                acc_b.write("".join(map(chr,[i2])))
+                acc_b.write("".join(map(chr,[_g21])))
         return acc_b.getvalue()
 
     @staticmethod
@@ -1824,8 +1783,7 @@ class haxe_xml__Fast_NodeAccess_Impl_:
             raise _HxException(((("null" if xname is None else xname) + " is missing element ") + ("null" if name is None else name)))
         if ((x.nodeType != Xml.Document) and ((x.nodeType != Xml.Element))):
             raise _HxException(("Invalid nodeType " + Std.string(x.nodeType)))
-        this2 = x
-        return this2
+        return x
 haxe_xml__Fast_NodeAccess_Impl_._hx_class = haxe_xml__Fast_NodeAccess_Impl_
 
 
@@ -1884,8 +1842,7 @@ class haxe_xml__Fast_NodeListAccess_Impl_:
             x1 = x.next()
             if ((x1.nodeType != Xml.Document) and ((x1.nodeType != Xml.Element))):
                 raise _HxException(("Invalid nodeType " + Std.string(x1.nodeType)))
-            this2 = x1
-            l.append(this2)
+            l.append(x1)
         return l
 haxe_xml__Fast_NodeListAccess_Impl_._hx_class = haxe_xml__Fast_NodeListAccess_Impl_
 
@@ -1974,8 +1931,7 @@ class haxe_xml__Fast_Fast_Impl_:
             raise _HxException(("Bad node type, expected Element or Document but found " + Std.string(this1.nodeType)))
         x = python_HaxeIterator(this1.children.__iter__())
         while x.hasNext():
-            x1 = x.next()
-            s_b.write(Std.string(haxe_xml_Printer.print(x1)))
+            s_b.write(Std.string(haxe_xml_Printer.print(x.next())))
         return s_b.getvalue()
 haxe_xml__Fast_Fast_Impl_._hx_class = haxe_xml__Fast_Fast_Impl_
 
@@ -1993,8 +1949,7 @@ class haxe_xml_XmlParserException:
         self.lineNumber = 1
         self.positionAtLine = 0
         _g1 = 0
-        _g = position
-        while (_g1 < _g):
+        while (_g1 < position):
             i = _g1
             _g1 = (_g1 + 1)
             c = (-1 if ((i >= len(xml))) else ord(xml[i]))
@@ -2139,8 +2094,8 @@ class haxe_xml_Parser:
                         raise _HxException(haxe_xml_XmlParserException("Expected attribute name",_hx_str,p))
                     tmp2 = HxString.substr(_hx_str,start,(p - start))
                     aname = tmp2
-                    if xml.exists(aname):
-                        raise _HxException(haxe_xml_XmlParserException((("Duplicate attribute [" + ("null" if aname is None else aname)) + "]"),_hx_str,p))
+                    if xml.exists(tmp2):
+                        raise _HxException(haxe_xml_XmlParserException((("Duplicate attribute [" + ("null" if tmp2 is None else tmp2)) + "]"),_hx_str,p))
                     state = 0
                     next = 6
                     continue
@@ -2246,8 +2201,7 @@ class haxe_xml_Parser:
                     tmp3 = False
                 if tmp3:
                     p = (p + 1)
-                    str1 = HxString.substr(_hx_str,(start + 1),((p - start) - 2))
-                    parent.addChild(Xml.createProcessingInstruction(str1))
+                    parent.addChild(Xml.createProcessingInstruction(HxString.substr(_hx_str,(start + 1),((p - start) - 2))))
                     nsubs = (nsubs + 1)
                     state = 1
             elif (state1 == 15):
@@ -2291,8 +2245,7 @@ class haxe_xml_Parser:
                 else:
                     tmp6 = False
                 if tmp6:
-                    child1 = Xml.createCData(HxString.substr(_hx_str,start,(p - start)))
-                    parent.addChild(child1)
+                    parent.addChild(Xml.createCData(HxString.substr(_hx_str,start,(p - start))))
                     nsubs = (nsubs + 1)
                     p = (p + 2)
                     state = 1
@@ -2342,7 +2295,6 @@ class haxe_xml_Parser:
                 s11 = (HxString.substr(_hx_str,start,None) if ((len6 is None)) else HxString.substr(_hx_str,start,len6))
                 buf.b.write(s11)
                 parent.addChild(Xml.createPCData(buf.b.getvalue()))
-                nsubs = (nsubs + 1)
             return p
         if (((not strict) and ((state == 18))) and ((escapeNext == 13))):
             s12 = "".join(map(chr,[38]))
@@ -2351,7 +2303,6 @@ class haxe_xml_Parser:
             s13 = (HxString.substr(_hx_str,start,None) if ((len7 is None)) else HxString.substr(_hx_str,start,len7))
             buf.b.write(s13)
             parent.addChild(Xml.createPCData(buf.b.getvalue()))
-            nsubs = (nsubs + 1)
             return p
         raise _HxException(haxe_xml_XmlParserException("Unexpected end",_hx_str,p))
 haxe_xml_Parser._hx_class = haxe_xml_Parser
@@ -2370,8 +2321,7 @@ class haxe_xml_Printer:
 
     def writeNode(self,value,tabs):
         _g = value.nodeType
-        _g1 = _g
-        if (_g1 == 0):
+        if (_g == 0):
             _this = self.output
             s = Std.string((("null" if tabs is None else tabs) + "<"))
             _this.b.write(s)
@@ -2399,8 +2349,7 @@ class haxe_xml_Printer:
                     raise _HxException(("Bad node type, expected Element or Document but found " + Std.string(value.nodeType)))
                 child = python_HaxeIterator(value.children.__iter__())
                 while child.hasNext():
-                    child1 = child.next()
-                    self.writeNode(child1,((("null" if tabs is None else tabs) + "\t") if (self.pretty) else tabs))
+                    self.writeNode(child.next(),((("null" if tabs is None else tabs) + "\t") if (self.pretty) else tabs))
                 _this4 = self.output
                 s4 = Std.string((("null" if tabs is None else tabs) + "</"))
                 _this4.b.write(s4)
@@ -2416,7 +2365,7 @@ class haxe_xml_Printer:
                 self.output.b.write("/>")
                 if self.pretty:
                     self.output.b.write("\n")
-        elif (_g1 == 1):
+        elif (_g == 1):
             if ((value.nodeType == Xml.Document) or ((value.nodeType == Xml.Element))):
                 raise _HxException(("Bad node type, unexpected " + Std.string(value.nodeType)))
             nodeValue = value.nodeValue
@@ -2427,7 +2376,7 @@ class haxe_xml_Printer:
                 _this6.b.write(s6)
                 if self.pretty:
                     self.output.b.write("\n")
-        elif (_g1 == 2):
+        elif (_g == 2):
             _this7 = self.output
             s7 = Std.string((("null" if tabs is None else tabs) + "<![CDATA["))
             _this7.b.write(s7)
@@ -2440,7 +2389,7 @@ class haxe_xml_Printer:
             self.output.b.write("]]>")
             if self.pretty:
                 self.output.b.write("\n")
-        elif (_g1 == 3):
+        elif (_g == 3):
             if ((value.nodeType == Xml.Document) or ((value.nodeType == Xml.Element))):
                 raise _HxException(("Bad node type, unexpected " + Std.string(value.nodeType)))
             commentContent = value.nodeValue
@@ -2455,7 +2404,7 @@ class haxe_xml_Printer:
             _this10.b.write(s10)
             if self.pretty:
                 self.output.b.write("\n")
-        elif (_g1 == 4):
+        elif (_g == 4):
             if ((value.nodeType == Xml.Document) or ((value.nodeType == Xml.Element))):
                 raise _HxException(("Bad node type, unexpected " + Std.string(value.nodeType)))
             _this11 = self.output
@@ -2463,7 +2412,7 @@ class haxe_xml_Printer:
             _this11.b.write(s11)
             if self.pretty:
                 self.output.b.write("\n")
-        elif (_g1 == 5):
+        elif (_g == 5):
             if ((value.nodeType == Xml.Document) or ((value.nodeType == Xml.Element))):
                 raise _HxException(("Bad node type, unexpected " + Std.string(value.nodeType)))
             _this12 = self.output
@@ -2471,13 +2420,12 @@ class haxe_xml_Printer:
             _this12.b.write(s12)
             if self.pretty:
                 self.output.b.write("\n")
-        elif (_g1 == 6):
+        elif (_g == 6):
             if ((value.nodeType != Xml.Document) and ((value.nodeType != Xml.Element))):
                 raise _HxException(("Bad node type, expected Element or Document but found " + Std.string(value.nodeType)))
-            child2 = python_HaxeIterator(value.children.__iter__())
-            while child2.hasNext():
-                child3 = child2.next()
-                self.writeNode(child3,tabs)
+            child1 = python_HaxeIterator(value.children.__iter__())
+            while child1.hasNext():
+                self.writeNode(child1.next(),tabs)
         else:
             pass
 
@@ -2488,10 +2436,9 @@ class haxe_xml_Printer:
         while child.hasNext():
             child1 = child.next()
             _g = child1.nodeType
-            _g1 = _g
-            if ((_g1 == 1) or ((_g1 == 0))):
+            if ((_g == 1) or ((_g == 0))):
                 return True
-            elif ((_g1 == 3) or ((_g1 == 2))):
+            elif ((_g == 3) or ((_g == 2))):
                 if ((child1.nodeType == Xml.Document) or ((child1.nodeType == Xml.Element))):
                     raise _HxException(("Bad node type, unexpected " + Std.string(child1.nodeType)))
                 if (len(StringTools.ltrim(child1.nodeValue)) != 0):
@@ -2686,138 +2633,136 @@ class python_Boot:
         if (field is None):
             return None
         if isinstance(o,str):
-            field1 = field
-            _hx_local_0 = len(field1)
+            _hx_local_0 = len(field)
             if (_hx_local_0 == 10):
-                if (field1 == "charCodeAt"):
+                if (field == "charCodeAt"):
                     return python_internal_MethodClosure(o,HxString.charCodeAt)
                 else:
-                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+                    field1 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field1) if (hasattr(o,field1)) else None)
             elif (_hx_local_0 == 11):
-                if (field1 == "lastIndexOf"):
+                if (field == "lastIndexOf"):
                     return python_internal_MethodClosure(o,HxString.lastIndexOf)
-                elif (field1 == "toLowerCase"):
+                elif (field == "toLowerCase"):
                     return python_internal_MethodClosure(o,HxString.toLowerCase)
-                elif (field1 == "toUpperCase"):
+                elif (field == "toUpperCase"):
                     return python_internal_MethodClosure(o,HxString.toUpperCase)
                 else:
-                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+                    field1 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field1) if (hasattr(o,field1)) else None)
             elif (_hx_local_0 == 9):
-                if (field1 == "substring"):
+                if (field == "substring"):
                     return python_internal_MethodClosure(o,HxString.substring)
                 else:
-                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+                    field1 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field1) if (hasattr(o,field1)) else None)
             elif (_hx_local_0 == 5):
-                if (field1 == "split"):
+                if (field == "split"):
                     return python_internal_MethodClosure(o,HxString.split)
                 else:
-                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+                    field1 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field1) if (hasattr(o,field1)) else None)
             elif (_hx_local_0 == 7):
-                if (field1 == "indexOf"):
+                if (field == "indexOf"):
                     return python_internal_MethodClosure(o,HxString.indexOf)
                 else:
-                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+                    field1 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field1) if (hasattr(o,field1)) else None)
             elif (_hx_local_0 == 8):
-                if (field1 == "toString"):
+                if (field == "toString"):
                     return python_internal_MethodClosure(o,HxString.toString)
+                else:
+                    field1 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field1) if (hasattr(o,field1)) else None)
+            elif (_hx_local_0 == 6):
+                if (field == "charAt"):
+                    return python_internal_MethodClosure(o,HxString.charAt)
+                elif (field == "length"):
+                    return len(o)
+                elif (field == "substr"):
+                    return python_internal_MethodClosure(o,HxString.substr)
+                else:
+                    field1 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field1) if (hasattr(o,field1)) else None)
+            else:
+                field1 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                return (getattr(o,field1) if (hasattr(o,field1)) else None)
+        elif isinstance(o,list):
+            _hx_local_1 = len(field)
+            if (_hx_local_1 == 11):
+                if (field == "lastIndexOf"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.lastIndexOf)
                 else:
                     field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
                     return (getattr(o,field2) if (hasattr(o,field2)) else None)
-            elif (_hx_local_0 == 6):
-                if (field1 == "charAt"):
-                    return python_internal_MethodClosure(o,HxString.charAt)
-                elif (field1 == "length"):
+            elif (_hx_local_1 == 4):
+                if (field == "copy"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.copy)
+                elif (field == "join"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.join)
+                elif (field == "push"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.push)
+                elif (field == "sort"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.sort)
+                else:
+                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+            elif (_hx_local_1 == 5):
+                if (field == "shift"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.shift)
+                elif (field == "slice"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.slice)
+                else:
+                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+            elif (_hx_local_1 == 7):
+                if (field == "indexOf"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.indexOf)
+                elif (field == "reverse"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.reverse)
+                elif (field == "unshift"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.unshift)
+                else:
+                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+            elif (_hx_local_1 == 3):
+                if (field == "map"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.map)
+                elif (field == "pop"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.pop)
+                else:
+                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+            elif (_hx_local_1 == 8):
+                if (field == "iterator"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.iterator)
+                elif (field == "toString"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.toString)
+                else:
+                    field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+                    return (getattr(o,field2) if (hasattr(o,field2)) else None)
+            elif (_hx_local_1 == 6):
+                if (field == "concat"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.concat)
+                elif (field == "filter"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.filter)
+                elif (field == "insert"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.insert)
+                elif (field == "length"):
                     return len(o)
-                elif (field1 == "substr"):
-                    return python_internal_MethodClosure(o,HxString.substr)
+                elif (field == "remove"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.remove)
+                elif (field == "splice"):
+                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.splice)
                 else:
                     field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
                     return (getattr(o,field2) if (hasattr(o,field2)) else None)
             else:
                 field2 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
                 return (getattr(o,field2) if (hasattr(o,field2)) else None)
-        elif isinstance(o,list):
-            field3 = field
-            _hx_local_1 = len(field3)
-            if (_hx_local_1 == 11):
-                if (field3 == "lastIndexOf"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.lastIndexOf)
-                else:
-                    field4 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field4) if (hasattr(o,field4)) else None)
-            elif (_hx_local_1 == 4):
-                if (field3 == "copy"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.copy)
-                elif (field3 == "join"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.join)
-                elif (field3 == "push"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.push)
-                elif (field3 == "sort"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.sort)
-                else:
-                    field4 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field4) if (hasattr(o,field4)) else None)
-            elif (_hx_local_1 == 5):
-                if (field3 == "shift"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.shift)
-                elif (field3 == "slice"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.slice)
-                else:
-                    field4 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field4) if (hasattr(o,field4)) else None)
-            elif (_hx_local_1 == 7):
-                if (field3 == "indexOf"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.indexOf)
-                elif (field3 == "reverse"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.reverse)
-                elif (field3 == "unshift"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.unshift)
-                else:
-                    field4 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field4) if (hasattr(o,field4)) else None)
-            elif (_hx_local_1 == 3):
-                if (field3 == "map"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.map)
-                elif (field3 == "pop"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.pop)
-                else:
-                    field4 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field4) if (hasattr(o,field4)) else None)
-            elif (_hx_local_1 == 8):
-                if (field3 == "iterator"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.iterator)
-                elif (field3 == "toString"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.toString)
-                else:
-                    field4 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field4) if (hasattr(o,field4)) else None)
-            elif (_hx_local_1 == 6):
-                if (field3 == "concat"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.concat)
-                elif (field3 == "filter"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.filter)
-                elif (field3 == "insert"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.insert)
-                elif (field3 == "length"):
-                    return len(o)
-                elif (field3 == "remove"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.remove)
-                elif (field3 == "splice"):
-                    return python_internal_MethodClosure(o,python_internal_ArrayImpl.splice)
-                else:
-                    field4 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                    return (getattr(o,field4) if (hasattr(o,field4)) else None)
-            else:
-                field4 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-                return (getattr(o,field4) if (hasattr(o,field4)) else None)
         else:
-            field5 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
-            return (getattr(o,field5) if (hasattr(o,field5)) else None)
+            field3 = (("_hx_" + field) if ((field in python_Boot.keywords)) else (("_hx_" + field) if (((((len(field) > 2) and ((ord(field[0]) == 95))) and ((ord(field[1]) == 95))) and ((ord(field[(len(field) - 1)]) != 95)))) else field))
+            return (getattr(o,field3) if (hasattr(o,field3)) else None)
 
     @staticmethod
     def getInstanceFields(c):
@@ -2876,8 +2821,7 @@ class python__KwArgs_KwArgs_Impl_:
 
     @staticmethod
     def fromT(d):
-        this1 = python_Lib.anonAsDict(d)
-        return this1
+        return python_Lib.anonAsDict(d)
 python__KwArgs_KwArgs_Impl_._hx_class = python__KwArgs_KwArgs_Impl_
 
 
@@ -2931,8 +2875,7 @@ class python_internal_ArrayImpl:
         if (l < 0):
             l = 0
         _g1 = l
-        _g = _hx_len
-        while (_g1 < _g):
+        while (_g1 < _hx_len):
             i = _g1
             _g1 = (_g1 + 1)
             if (a[i] == x):
@@ -3060,8 +3003,7 @@ class _HxException(Exception):
 
     def __init__(self,val):
         self.val = None
-        message = str(val)
-        super().__init__(message)
+        super().__init__(str(val))
         self.val = val
 
 _HxException._hx_class = _HxException
@@ -3105,8 +3047,7 @@ class HxOverrides:
             k1 = k.next()
             val = v.get(k1)
             if hasattr(a1,k1):
-                x = getattr(a1,k1)
-                setattr(a1,val,x)
+                setattr(a1,val,getattr(a1,k1))
                 delattr(a1,k1)
         return a1
 HxOverrides._hx_class = HxOverrides

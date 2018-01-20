@@ -3,4 +3,5 @@
 -cp src
 -python plugin/haxe_minimal.py
 -dce std
--D analyzer
+# -D analyzer [on by default]
+-D analyzer-optimize
