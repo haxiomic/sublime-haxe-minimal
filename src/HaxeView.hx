@@ -28,21 +28,21 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var viewContent = view.substr(new sublime.Region(0, view.size()));
 
 		// determine completion mode
-		var completionMode: HaxeServer.CompletionMode = null;
+		var displayMode: HaxeServer.DisplayMode = null;
 
 		var proceedingNonWordChar = viewContent.charAt(completionLocation - prefix.length - 1);
 		switch proceedingNonWordChar {
 			case '.':
-				completionMode = Field; // used for field completion
+				displayMode = Field; // used for field completion
 				// if we're in the middle of typing out a field, we should step back to the .
 				completionLocation -= prefix.length;
 			default:
-				completionMode = Toplevel;
+				displayMode = Toplevel;
 		}
 
-		trace('Autocomplete scope "$completionScope" mode "$completionMode"');
+		trace('Autocomplete scope "$completionScope" mode "$displayMode"');
 
-		if (completionMode == null) return null;
+		if (displayMode == null) return null;
 
 		var hxml = HaxeProject.getHxmlForView(view);
 
@@ -52,7 +52,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		}
 
 		var haxeServer = HaxeProject.getHaxeServerHandle(view, Stdio);
-		var result = haxeServer.display(hxml, view.file_name(), completionLocation, completionMode, completionMode == Field, viewContent);
+		var result = haxeServer.display(hxml, view.file_name(), completionLocation, displayMode, displayMode == Field, viewContent);
 
 		if (!result.hasError) {
 			/*
@@ -203,7 +203,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		}
 
 		// inhibit all if it's in field completion mode
-		if (completionMode == Field) {
+		if (displayMode == Field) {
 			return untyped python.Tuple.Tuple2.make([], sublime.Sublime.INHIBIT_WORD_COMPLETIONS | sublime.Sublime.INHIBIT_EXPLICIT_COMPLETIONS);
 		} else {
 			return null;
@@ -224,10 +224,10 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var viewContent = view.substr(new sublime.Region(0, view.size()));
 		var haxeServer = HaxeProject.getHaxeServerHandle(view, Stdio);
 
-		var completionMode: HaxeServer.CompletionMode = Type;
+		var displayMode: HaxeServer.DisplayMode = Type;
 
 		var details = true;
-		var result = haxeServer.display(hxml, view.file_name(), point, completionMode, details, viewContent);
+		var result = haxeServer.display(hxml, view.file_name(), point, displayMode, details, viewContent);
 
 		if (!result.hasError) {
 			var x = new haxe.xml.Fast(Xml.parse(result.output));

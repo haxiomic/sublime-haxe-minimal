@@ -17,7 +17,7 @@ typedef AsyncHandle = {
 }
 
 // https://haxe.org/manual/cr-completion-overview.html
-@:enum abstract CompletionMode(String) to String {
+@:enum abstract DisplayMode(String) to String {
 	var Field = '';
 
 	var Usage = 'usage';

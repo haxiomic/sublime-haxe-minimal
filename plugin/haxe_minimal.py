@@ -540,16 +540,16 @@ class HaxeView(sublime_plugin_ViewEventListener):
         completionLocation = (locations[0] if 0 < len(locations) else None)
         completionScope = self.view.scope_name(completionLocation)
         viewContent = self.view.substr(sublime_Region(0,self.view.size()))
-        completionMode = None
+        displayMode = None
         index = ((completionLocation - len(prefix)) - 1)
         proceedingNonWordChar = ("" if (((index < 0) or ((index >= len(viewContent))))) else viewContent[index])
         if (proceedingNonWordChar == "."):
-            completionMode = ""
+            displayMode = ""
             completionLocation = (completionLocation - len(prefix))
         else:
-            completionMode = "toplevel"
-        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(completionMode)) + "\""),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 43, 'className': "HaxeView", 'methodName': "on_query_completions"}))
-        if (completionMode is None):
+            displayMode = "toplevel"
+        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(displayMode)) + "\""),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 43, 'className': "HaxeView", 'methodName': "on_query_completions"}))
+        if (displayMode is None):
             return None
         hxml = HaxeProject.getHxmlForView(self.view)
         if (hxml is None):
@@ -563,7 +563,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
             haxeServer = HaxeProject.haxeServerStdioHandle
         else:
             raise _HxException("Not yet supported")
-        result = haxeServer.display(hxml,self.view.file_name(),completionLocation,completionMode,(completionMode == ""),viewContent)
+        result = haxeServer.display(hxml,self.view.file_name(),completionLocation,displayMode,(displayMode == ""),viewContent)
         if (not result.hasError):
             xml = None
             try:
@@ -781,7 +781,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
             return (sublimeCompletions, sublime_Sublime.INHIBIT_WORD_COMPLETIONS)
         else:
             self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.output)))
-        if (completionMode == ""):
+        if (displayMode == ""):
             return ([], (sublime_Sublime.INHIBIT_WORD_COMPLETIONS | sublime_Sublime.INHIBIT_EXPLICIT_COMPLETIONS))
         else:
             return None
@@ -803,9 +803,9 @@ class HaxeView(sublime_plugin_ViewEventListener):
             haxeServer = HaxeProject.haxeServerStdioHandle
         else:
             raise _HxException("Not yet supported")
-        completionMode = "type"
+        displayMode = "type"
         details = True
-        result = haxeServer.display(hxml,self.view.file_name(),point,completionMode,details,viewContent)
+        result = haxeServer.display(hxml,self.view.file_name(),point,displayMode,details,viewContent)
         if (not result.hasError):
             x = Xml.parse(result.output)
             if ((x.nodeType != Xml.Document) and ((x.nodeType != Xml.Element))):
@@ -817,7 +817,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
             _hx_type = haxe_xml__Fast_Fast_Impl_.get_innerHTML(typeNode)
             docs = ((("<p>" + HxOverrides.stringOrNull(StringTools.replace(StringTools.trim(docs),"\n","<br>"))) + "</p>") if ((docs is not None)) else "")
             self.view.show_popup(((("<code>" + ("null" if _hx_type is None else _hx_type)) + "</code>") + ("null" if docs is None else docs)),(sublime_Sublime.HIDE_ON_MOUSE_MOVE_AWAY | sublime_Sublime.COOPERATE_WITH_AUTO_COMPLETE),point,700)
-        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 244, 'className': "HaxeView", 'methodName': "on_hover"}))
+        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 243, 'className': "HaxeView", 'methodName': "on_hover"}))
 
     @staticmethod
     def is_applicable(settings):
