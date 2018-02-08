@@ -183,15 +183,18 @@ class HaxeBuildCommand(_HaxeBuildCommand_VariantsWindowCommand):
             else:
                 _gthis.appendPanel("\nBuild failed\n")
                 _gthis.showResultsPanel()
-            if (len(result.output) > 0):
+            if (len(result.log) > 0):
                 _gthis.appendPanel("\n")
-                _gthis.appendPanel(result.output)
+                _this = result.log
+                tmp = "\n".join([python_Boot.toString1(x1,'') for x1 in _this])
+                _gthis.appendPanel(tmp)
+                _gthis.showResultsPanel()
+            if (len(result.message) > 0):
+                _gthis.appendPanel("\n")
+                _gthis.appendPanel(result.message)
                 _gthis.showResultsPanel()
             _gthis.buildHandle = None
-        def _hx_local_1(log):
-            _gthis.appendPanel(log)
-            _gthis.showResultsPanel()
-        self.buildHandle = haxeServer.buildAsync(hxmlContent,_hx_local_0,_hx_local_1)
+        self.buildHandle = haxeServer.buildAsync(hxmlContent,_hx_local_0)
 
     def description(self,args = None):
         if ((args is not None) and ((args.get("kill") == True))):
@@ -340,7 +343,7 @@ class HaxeServerStdio:
     __slots__ = ("processUserArgs", "process", "processWriteLock", "errQueue")
     _hx_fields = ["processUserArgs", "process", "processWriteLock", "errQueue"]
     _hx_methods = ["__del__", "start", "restart", "terminate", "buildAsync", "display", "build", "execute"]
-    _hx_statics = ["createServerMessageQueue"]
+    _hx_statics = ["parseCompilerOutput", "createServerMessageQueue"]
 
     def __init__(self,args = None):
         self.errQueue = None
@@ -358,7 +361,7 @@ class HaxeServerStdio:
         sys = python_lib_Sys
         moduleNames = Reflect.field(sys,"builtin_module_names")
         isPosix = (python_internal_ArrayImpl.indexOf(list(moduleNames),"posix",None) != -1)
-        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 82, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 83, 'className': "HaxeServerStdio", 'methodName': "start"}))
         args1 = (["haxe", "--wait", "stdio"] + args)
         o = _hx_AnonObject({'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE, 'stdin': python_lib_Subprocess.PIPE, 'close_fds': isPosix})
         Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
@@ -381,7 +384,7 @@ class HaxeServerStdio:
             raise _HxException(((("Haxe server failed to start: (" + Std.string(exitCode)) + ") ") + ("null" if errorMessage is None else errorMessage)))
         self.errQueue = HaxeServerStdio.createServerMessageQueue(self.process.stderr)
         haxeVersionString = self.execute("-version",1.5).toString()
-        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 105, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 106, 'className': "HaxeServerStdio", 'methodName': "start"}))
 
     def restart(self):
         self.terminate()
@@ -389,16 +392,16 @@ class HaxeServerStdio:
 
     def terminate(self):
         if (self.process is not None):
-            haxe_Log.trace("Stopping haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 122, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
+            haxe_Log.trace("Stopping haxe server",_hx_AnonObject({'fileName': "HaxeServer.hx", 'lineNumber': 123, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
             self.process.terminate()
         self.process = None
         self.errQueue = None
 
-    def buildAsync(self,hxml,onComplete,handleLog = None,timeout_s = None):
+    def buildAsync(self,hxml,onComplete,timeout_s = None):
         _gthis = self
         cancelled = False
         def _hx_local_0():
-            result = _gthis.build(hxml,handleLog,timeout_s)
+            result = _gthis.build(hxml,timeout_s)
             if (not cancelled):
                 onComplete(result)
         buildThread = python_lib_threading_Thread(**python__KwArgs_KwArgs_Impl_.fromT(_hx_AnonObject({'target': _hx_local_0})))
@@ -420,37 +423,14 @@ class HaxeServerStdio:
         if (fileContent is not None):
             displayDirectives = (("null" if displayDirectives is None else displayDirectives) + HxOverrides.stringOrNull(((("\n" + "\x01") + ("null" if fileContent is None else fileContent)))))
         result = self.execute((("null" if hxml is None else hxml) + ("null" if displayDirectives is None else displayDirectives)),1.5).toString()
-        hasError = False
         if (((-1 if ((0 >= len(result))) else ord(result[0]))) != ((-1 if ((0 >= len("<"))) else ord("<"[0])))):
-            hasError = (result.find("\x02") != -1)
-            result = StringTools.replace(result,"\x02\n","")
-        return _hx_AnonObject({'output': result, 'hasError': hasError})
+            return HaxeServerStdio.parseCompilerOutput(result)
+        return _hx_AnonObject({'message': result, 'hasError': False, 'log': []})
 
-    def build(self,hxml,handleLog = None,timeout_s = 120):
+    def build(self,hxml,timeout_s = 120):
         if (timeout_s is None):
             timeout_s = 120
-        result = self.execute(hxml,timeout_s)
-        hasError = False
-        output = ""
-        _this = result.toString()
-        lines = _this.split("\n")
-        _g = 0
-        while (_g < len(lines)):
-            line = (lines[_g] if _g >= 0 and _g < len(lines) else None)
-            _g = (_g + 1)
-            _g1 = (-1 if ((0 >= len(line))) else ord(line[0]))
-            _g11 = _g1
-            if (_g11 == 1):
-                logLine = StringTools.replace(HxString.substr(line,1,None),"\x01","\n")
-                if (handleLog is not None):
-                    handleLog(logLine)
-                else:
-                    print(("Haxe > " + HxOverrides.stringOrNull(StringTools.rtrim(logLine))))
-            elif (_g11 == 2):
-                hasError = True
-            else:
-                output = (("null" if output is None else output) + HxOverrides.stringOrNull(((("null" if line is None else line) + "\n"))))
-        return _hx_AnonObject({'output': output, 'hasError': hasError})
+        return HaxeServerStdio.parseCompilerOutput(self.execute(hxml,timeout_s).toString())
 
     def execute(self,hxml,timeout_s = None):
         buffer = haxe_io_BytesBuffer()
@@ -486,6 +466,26 @@ class HaxeServerStdio:
         result = self.errQueue.get(True,timeout_s)
         self.processWriteLock.release()
         return result
+
+    @staticmethod
+    def parseCompilerOutput(outputString):
+        lines = outputString.split("\n")
+        hasError = False
+        log = []
+        message = []
+        _g = 0
+        while (_g < len(lines)):
+            line = (lines[_g] if _g >= 0 and _g < len(lines) else None)
+            _g = (_g + 1)
+            _g1 = (-1 if ((0 >= len(line))) else ord(line[0]))
+            if (_g1 == 1):
+                x = StringTools.replace(HxString.substr(line,1,None),"\x01","\n")
+                log.append(x)
+            elif (_g1 == 2):
+                hasError = True
+            else:
+                message.append(line)
+        return _hx_AnonObject({'message': "\n".join([python_Boot.toString1(x1,'') for x1 in message]), 'hasError': hasError, 'log': log})
 
     @staticmethod
     def createServerMessageQueue(pipe):
@@ -550,7 +550,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
             completionLocation = (completionLocation - len(prefix))
         else:
             displayMode = "toplevel"
-        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(displayMode)) + "\""),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 55, 'className': "HaxeView", 'methodName': "on_query_completions"}))
+        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(displayMode)) + "\""),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 56, 'className': "HaxeView", 'methodName': "on_query_completions"}))
         if (displayMode is None):
             return None
         hxml = HaxeProject.getHxmlForView(self.view)
@@ -569,11 +569,11 @@ class HaxeView(sublime_plugin_ViewEventListener):
         if (not result.hasError):
             xml = None
             try:
-                xml = Xml.parse(result.output)
+                xml = Xml.parse(result.message)
             except Exception as _hx_e:
                 _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
                 e = _hx_e1
-                self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.output)))
+                self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.message)))
                 return None
             if ((xml.nodeType != Xml.Document) and ((xml.nodeType != Xml.Element))):
                 raise _HxException(("Invalid nodeType " + Std.string(xml.nodeType)))
@@ -780,9 +780,9 @@ class HaxeView(sublime_plugin_ViewEventListener):
                 return [(HxOverrides.stringOrNull(c.display) + HxOverrides.stringOrNull(((("\t" + HxOverrides.stringOrNull(c.info)) if ((c.info is not None)) else "")))), c.completion]
             sublimeCompletions = list(map(_hx_local_22,completions))
             self.view.erase_status("haxe_status")
-            return (sublimeCompletions, sublime_Sublime.INHIBIT_WORD_COMPLETIONS)
+            return (sublimeCompletions, (sublime_Sublime.INHIBIT_WORD_COMPLETIONS if ((len(sublimeCompletions) > 0)) else 0))
         else:
-            self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.output)))
+            self.view.set_status("haxe_status",("Autocomplete: " + HxOverrides.stringOrNull(result.message)))
         if (displayMode == ""):
             return ([], (sublime_Sublime.INHIBIT_WORD_COMPLETIONS | sublime_Sublime.INHIBIT_EXPLICIT_COMPLETIONS))
         else:
@@ -808,8 +808,9 @@ class HaxeView(sublime_plugin_ViewEventListener):
         displayMode = "type"
         details = True
         result = haxeServer.display(hxml,self.view.file_name(),point,displayMode,details,viewContent)
+        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 245, 'className': "HaxeView", 'methodName': "on_hover"}))
         if (not result.hasError):
-            x = Xml.parse(result.output)
+            x = Xml.parse(result.message)
             if ((x.nodeType != Xml.Document) and ((x.nodeType != Xml.Element))):
                 raise _HxException(("Invalid nodeType " + Std.string(x.nodeType)))
             this1 = x
@@ -819,7 +820,6 @@ class HaxeView(sublime_plugin_ViewEventListener):
             _hx_type = haxe_xml__Fast_Fast_Impl_.get_innerHTML(typeNode)
             docs = ((("<p>" + HxOverrides.stringOrNull(StringTools.replace(StringTools.trim(docs),"\n","<br>"))) + "</p>") if ((docs is not None)) else "")
             self.view.show_popup(((("<code>" + ("null" if _hx_type is None else _hx_type)) + "</code>") + ("null" if docs is None else docs)),(sublime_Sublime.HIDE_ON_MOUSE_MOVE_AWAY | sublime_Sublime.COOPERATE_WITH_AUTO_COMPLETE),point,700)
-        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "HaxeView.hx", 'lineNumber': 255, 'className': "HaxeView", 'methodName': "on_hover"}))
 
     @staticmethod
     def is_applicable(settings):

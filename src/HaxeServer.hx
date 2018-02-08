@@ -7,8 +7,9 @@ import haxe.io.Bytes;
 using StringTools;
 
 typedef BuildOutput = {
-	output: String,
-	hasError: Bool
+	message: String,
+	hasError: Bool,
+	log: Array<String>
 }
 
 typedef AsyncHandle = {
@@ -46,7 +47,7 @@ interface HaxeServer {
 
 	function restart(): Void;
 	function terminate(): Void;
-	function buildAsync(hxml: String, onComplete: BuildOutput -> Void, ?handleLog: String -> Void, ?timeout_s: Int): AsyncHandle;
+	function buildAsync(hxml: String, onComplete: BuildOutput -> Void, ?timeout_s: Int): AsyncHandle;
 
 }
 
@@ -129,11 +130,11 @@ class HaxeServerStdio implements HaxeServer {
 	/**
 		Build asynchronously
 	**/
-	public function buildAsync(hxml: String, onComplete: BuildOutput -> Void, ?handleLog: String -> Void, ?timeout_s: Int): AsyncHandle {
+	public function buildAsync(hxml: String, onComplete: BuildOutput -> Void, ?timeout_s: Int): AsyncHandle {
 		var cancelled = false;
 
 		function buildCallback() {
-			var result = build(hxml, handleLog, timeout_s);
+			var result = build(hxml, timeout_s);
 			if (!cancelled) {
 				onComplete(result);
 			}
@@ -176,50 +177,24 @@ class HaxeServerStdio implements HaxeServer {
 
 		var result = execute(hxml + displayDirectives, timeout_s).toString();
 
-		var hasError = false;
+		// as an optimization we assume the result includes non-xml content when the first character is not a '<'
 		if (result.fastCodeAt(0) != '<'.fastCodeAt(0)){
-			hasError = result.indexOf(String.fromCharCode(0x02)) != -1;
-			// remove error indicator(s)
-			result = result.replace('\x02\n', '');
+			return parseCompilerOutput(result);
 		}
 
 		return {
-			output: result,
-			hasError: hasError
+			message: result,
+			hasError: false,
+			log: []
 		}
 	}
 
 	/**
 		Build synchronously
 	**/
-	function build(hxml: String, ?handleLog: String -> Void, ?timeout_s = 120) {
-		var result = execute(hxml, timeout_s);
-
-		var hasError = false;
-		var output = '';
-
-		// parse result
-		var lines = result.toString().split('\n');
-		for (line in lines) {
-			switch line.fastCodeAt(0) {
-				case 0x01:
-					var logLine = line.substr(1).replace('\x01', '\n');
-					if (handleLog != null) {
-						handleLog(logLine);
-					} else {
-						untyped print('Haxe > ' + logLine.rtrim());
-					}
-				case 0x02:
-					hasError = true;
-				default:
-					output += line + '\n';
-			}
-		}
-
-		return {
-			output: output,
-			hasError: hasError
-		};
+	function build(hxml: String, ?timeout_s = 120) {
+		var result = execute(hxml, timeout_s).toString();
+		return parseCompilerOutput(result);
 	}
 
 	function execute(hxml: String, ?timeout_s: Float): haxe.io.Bytes {
@@ -257,6 +232,31 @@ class HaxeServerStdio implements HaxeServer {
 		processWriteLock.release();
 		
 		return result;
+	}
+
+	static function parseCompilerOutput(outputString: String) {
+		var lines = outputString.toString().split('\n');
+
+		var hasError = false;
+		var log = [];
+		var message = [];
+
+		for (line in lines) {
+			switch line.fastCodeAt(0) {
+				case 0x01:
+					log.push(line.substr(1).replace('\x01', '\n'));
+				case 0x02:
+					hasError = true;
+				default:
+					message.push(line);
+			}
+		}
+
+		return {
+			message: message.join('\n'),
+			hasError: hasError,
+			log: log
+		}
 	}
 
 	static function createServerMessageQueue(pipe: FileIO) {

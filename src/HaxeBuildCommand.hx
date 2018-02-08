@@ -88,17 +88,19 @@ class HaxeBuildCommand extends VariantsWindowCommand {
 					showResultsPanel();
 				}
 
-				if (result.output.length > 0) {
+				if (result.log.length > 0) {
 					appendPanel('\n');
-					appendPanel(result.output);
+					appendPanel(result.log.join('\n'));
+					showResultsPanel();
+				}
+
+				if (result.message.length > 0) {
+					appendPanel('\n');
+					appendPanel(result.message);
 					showResultsPanel();
 				}
 
 				buildHandle = null;
-			},
-			function(log){
-				appendPanel(log);
-				showResultsPanel();
 			}
 		);
 	}

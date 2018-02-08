@@ -90,9 +90,9 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			*/
 
 			var xml: Xml;
-			try xml = Xml.parse(result.output)
+			try xml = Xml.parse(result.message)
 			catch(e: Any) {
-				view.set_status(HAXE_STATUS, 'Autocomplete: ' + result.output);
+				view.set_status(HAXE_STATUS, 'Autocomplete: ' + result.message);
 				return null;
 			}
 
@@ -207,12 +207,12 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			
 			return untyped python.Tuple.Tuple2.make(
 				sublimeCompletions,
-				sublime.Sublime.INHIBIT_WORD_COMPLETIONS /*| sublime.Sublime.INHIBIT_EXPLICIT_COMPLETIONS*/
+				sublimeCompletions.length > 0 ? sublime.Sublime.INHIBIT_WORD_COMPLETIONS : 0 // only inhibit word completions if we have haxe completions
 			);
 
 		} else {
-			view.set_status(HAXE_STATUS, 'Autocomplete: ' + result.output);
-			updateErrors(result.output);
+			view.set_status(HAXE_STATUS, 'Autocomplete: ' + result.message);
+			updateErrors(result.message);
 		}
 
 		// inhibit all if it's in field completion mode
@@ -242,8 +242,10 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var details = true;
 		var result = haxeServer.display(hxml, view.file_name(), point, displayMode, details, viewContent);
 
+		trace('on_hover "$scope" $result');
+
 		if (!result.hasError) {
-			var x = new haxe.xml.Fast(Xml.parse(result.output));
+			var x = new haxe.xml.Fast(Xml.parse(result.message));
 			var typeNode = x.node.type;
 			var docs = typeNode.has.d ? typeNode.att.d : null;
 			var type = typeNode.innerHTML;
@@ -253,7 +255,6 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			view.show_popup('<code>$type</code>$docs', sublime.Sublime.HIDE_ON_MOUSE_MOVE_AWAY | sublime.Sublime.COOPERATE_WITH_AUTO_COMPLETE, untyped point, 700);
 		}
 
-		trace('on_hover "$scope" $result');
 	}
 
 	static function updateErrors(haxeErrorString: String) {
