@@ -1,4 +1,7 @@
 # Todo
+- Better project file selection: we can use the file's package directive to guess where we should search for the hxml file
+	- We should cache the associated project file
+	- There could be methods to override the default behaviour to support projects like OpenFL XML and snowkit flow files
 - Switch to VsHaxe syntax files (and maybe see if there are other parts of VsHaxe that we can use)
 - Better completion scoping – we don't want haxe-server completion when writing method names for example
 - Keyword completion, this, super, etc

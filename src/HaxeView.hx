@@ -12,6 +12,13 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 
 	static inline var HAXE_STATUS = 'haxe_status';
 
+
+	static function is_applicable(settings: sublime.Settings) {
+		return settings.get('syntax') == 'Packages/Haxe Minimal/syntax/haxe.tmLanguage';
+	}
+
+	static function applies_to_primary_view_only() return false;
+
 	override function on_modified() {
 	}
 
@@ -24,6 +31,12 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 	override function on_query_completions(prefix:String, locations:Array<Int>):Null<haxe.extern.EitherType<Array<Any>, python.Tuple<Any>>> {
 		var completionLocation = locations[0];
 		var completionScope = view.scope_name(completionLocation);
+
+		// handle autocomplete in specific scopes
+		if (view.score_selector(completionLocation, "comment") > 0) {
+			// comment scope should use default autocomplete
+			return null;
+		}
 
 		var viewContent = view.substr(new sublime.Region(0, view.size()));
 
@@ -242,12 +255,6 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 
 		trace('on_hover "$scope" $result');
 	}
-
-	static function is_applicable(settings: sublime.Settings) {
-		return settings.get('syntax') == 'Packages/Haxe Minimal/syntax/haxe.tmLanguage';
-	}
-
-	static function applies_to_primary_view_only() return false;
 
 	static function updateErrors(haxeErrorString: String) {
 		// @! todo display errors
