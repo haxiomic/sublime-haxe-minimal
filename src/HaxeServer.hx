@@ -244,7 +244,7 @@ class HaxeServerStdio implements HaxeServer {
 		for (line in lines) {
 			switch line.fastCodeAt(0) {
 				case 0x01:
-					log.push(line.substr(1).replace('\x01', '\n'));
+					log.push(line.substr(1).replace('\x01', '\n').rtrim()); // trim trailing newlines
 				case 0x02:
 					hasError = true;
 				default:

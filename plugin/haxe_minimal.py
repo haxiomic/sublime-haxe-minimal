@@ -479,7 +479,7 @@ class HaxeServerStdio:
             _g = (_g + 1)
             _g1 = (-1 if ((0 >= len(line))) else ord(line[0]))
             if (_g1 == 1):
-                x = StringTools.replace(HxString.substr(line,1,None),"\x01","\n")
+                x = StringTools.trim(StringTools.replace(HxString.substr(line,1,None),"\x01","\n"))
                 log.append(x)
             elif (_g1 == 2):
                 hasError = True
