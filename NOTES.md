@@ -1,4 +1,5 @@
 # Todo
+- Support new function syntax (breaking in haxe 4)
 - Better project file selection: we can use the file's package directive to guess where we should search for the hxml file
 	- We should cache the associated project file
 	- There could be methods to override the default behaviour to support projects like OpenFL XML and snowkit flow files

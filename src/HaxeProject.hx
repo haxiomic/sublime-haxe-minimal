@@ -69,8 +69,11 @@ class HaxeProject {
 	static public function findAssociatedHxmlPath(view: sublime.View): String {
 
 		// search local and parent directories for hxml files
+		
+		// @! should inspect files package directive
+
 		if (view.file_name() != null) {
-			var maxDepth = 4;
+			var maxDepth = 5;
 			var searchDir = Path.directory(view.file_name());
 
 			for(i in 0...maxDepth) {

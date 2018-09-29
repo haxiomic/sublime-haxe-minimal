@@ -17,7 +17,7 @@ class HaxePlugin {
 				prefix = '${infos.fileName}:${infos.lineNumber}: ';
 				suffix = infos.customParams != null ? (', ' + infos.customParams.join(', ')) : '';
 			}
-			untyped print(prefix + str + suffix);
+			python.lib.Builtins.print(prefix + str + suffix);
 		}
 	}
 

@@ -96,7 +96,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 				return null;
 			}
 
-			var x = new haxe.xml.Fast(xml);
+			var x = new haxe.xml.Access(xml);
 
 			var maxDisplayLength = 50;
 			var overflowSuffix = ' …  ';
@@ -231,7 +231,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 
 		if (hxml == null) {
 			view.set_status(HAXE_STATUS, 'Autocomplete: Could not find hxml');
-			return null;
+			return;
 		}
 
 		var viewContent = view.substr(new sublime.Region(0, view.size()));
@@ -244,8 +244,10 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 
 		trace('on_hover "$scope" $result');
 
-		if (!result.hasError) {
-			var x = new haxe.xml.Fast(Xml.parse(result.message));
+		try if (!result.hasError) {
+			var x = new haxe.xml.Access(Xml.parse(result.message));
+			// expecting <type>, however I've received <list> in the past
+
 			var typeNode = x.node.type;
 			var docs = typeNode.has.d ? typeNode.att.d : null;
 			var type = typeNode.innerHTML;
@@ -253,6 +255,8 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			docs = docs != null ? '<p>' + docs.trim().replace('\n', '<br>') + '</p>' : '';
 
 			view.show_popup('<code>$type</code>$docs', sublime.Sublime.HIDE_ON_MOUSE_MOVE_AWAY | sublime.Sublime.COOPERATE_WITH_AUTO_COMPLETE, untyped point, 700);
+		} catch (e: Any) {
+			trace('on_hover error: $e');
 		}
 
 	}
@@ -297,6 +301,8 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		Split function into parameters and return type
 
 		This method does not validate the signature string
+
+		// @! does not support new syntax: (a: A, b: B) -> C
 	**/
 	static function parseFunctionSignature(signature: String) {
 		// Examples
