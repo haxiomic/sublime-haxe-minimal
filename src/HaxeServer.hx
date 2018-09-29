@@ -221,15 +221,29 @@ class HaxeServerStdio implements HaxeServer {
 			// additionally, we should restart the server if we're waiting too long
 			try {
 				while(true) errQueue.get(false); // pop queue until empty
-			} catch (e: python.lib.Queue.Empty) {}
+			}
+			catch (e: python.lib.Queue.Empty) {}
+			catch (e: Dynamic) {
+				trace("Unknown error reading from queue: $e");
+			}
 
 			process.stdin.write(payloadBytes.getData());
 			process.stdin.flush();
 
-			// @! if this timesout it will throw – it might be better to catch it and return null instead
-			result = errQueue.get(true, timeout_s);
+			// @! if this times-out it will throw – it might be better to catch it and return null instead
+			try {
+				result = errQueue.get(true, timeout_s);
+			} catch (e: python.lib.Queue.Empty) {
+				trace("Error: errQueue is unexpectedly empty");
+			} catch (e: Dynamic) {
+				trace("Unknown error reading from queue: $e");
+			}
 		}
 		processWriteLock.release();
+
+		if (result == null) {
+			throw "Unable to read output from haxe compiler";
+		}
 		
 		return result;
 	}
@@ -261,28 +275,48 @@ class HaxeServerStdio implements HaxeServer {
 
 	static function createServerMessageQueue(pipe: FileIO) {
 		function enqueueMessages(pipe: FileIO, queue: Queue){
-			var bytesRemaining = 0;
-
 			while(true) {
-				if (bytesRemaining <= 0) {
-					var lengthHeader = haxe.io.Bytes.ofData(pipe.read(4));
-					if (lengthHeader == null || lengthHeader.length != 4) {
-						break; // pipe finished
-					}
-					bytesRemaining = lengthHeader.getInt32(0);
-				}
-
-				var messageBytes = haxe.io.Bytes.ofData(pipe.read(bytesRemaining));
-
-				if  (messageBytes == null || messageBytes.length != bytesRemaining) {
+				var lengthHeader = haxe.io.Bytes.ofData(pipe.read(4));
+				if (lengthHeader == null || lengthHeader.length != 4) {
+					trace('Pipe finished (case A)');
 					break; // pipe finished
 				}
+				var bytesRemaining = lengthHeader.getInt32(0);
+				var messageBuffer = new haxe.io.BytesBuffer();
+				trace('Reading message ($bytesRemaining bytes)');
 
-				bytesRemaining -= messageBytes.length;
+				// may not be complete message
+				var pipeDead: Bool = false;
+				while (bytesRemaining > 0) {
+					var pipeBytes = haxe.io.Bytes.ofData(pipe.read(bytesRemaining));
 
-				if (bytesRemaining == 0) { // message was read
+					if (pipeBytes == null) {
+						pipeDead = true;
+						trace('Pipe finished (case B - message was null)');
+						break; // pipe finished
+					} else {
+						bytesRemaining -= pipeBytes.length;
+						if (bytesRemaining > 0) {
+							trace('\tread chunk of ${pipeBytes.length} bytes');
+						}
+						messageBuffer.add(pipeBytes);
+					}
+				}
+
+				if (pipeDead) {
+					break;
+				}
+
+				// message has been read at this point
+				
+				// error check
+				if (bytesRemaining == 0) {
+					var messageBytes = messageBuffer.getBytes();
+					trace('Message read successfully');
+					trace('"$messageBytes"');
 					queue.put(messageBytes);
 				} else {
+					// bytesRemaining
 					throw 'Unexpected number of bytes return from pipe';
 				}
 			}
