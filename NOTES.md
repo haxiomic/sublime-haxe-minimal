@@ -1,11 +1,9 @@
 # Todo
-- Support new function syntax (breaking in haxe 4)
 - Better project file selection: we can use the file's package directive to guess where we should search for the hxml file
 	- We should cache the associated project file
 	- There could be methods to override the default behaviour to support projects like OpenFL XML and snowkit flow files
 - Switch to VsHaxe syntax files (and maybe see if there are other parts of VsHaxe that we can use)
 - Better completion scoping – we don't want haxe-server completion when writing method names for example
-- Keyword completion, this, super, etc
 - Hover on symbol show show type and documentation
 - Speed up completions by catching on_modified_async, by default this is 50ms before on_query_completions is fired
 	- Be sure to check the value of auto_complete_delay to verify if it's worth it
