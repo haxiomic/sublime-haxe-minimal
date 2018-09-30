@@ -312,7 +312,6 @@ class HaxeServerStdio implements HaxeServer {
 				if (bytesRemaining == 0) {
 					var messageBytes = messageBuffer.getBytes();
 					trace('Message read successfully');
-					trace('"$messageBytes"');
 					queue.put(messageBytes);
 				} else {
 					// bytesRemaining
