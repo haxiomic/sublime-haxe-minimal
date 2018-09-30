@@ -361,7 +361,7 @@ class HaxeServerStdio:
         sys = python_lib_Sys
         moduleNames = Reflect.field(sys,"builtin_module_names")
         isPosix = (python_internal_ArrayImpl.indexOf(list(moduleNames),"posix",None) != -1)
-        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 83, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace("Starting haxe server",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 81, 'className': "HaxeServerStdio", 'methodName': "start"}))
         args1 = (["haxe", "--wait", "stdio"] + args)
         o = _hx_AnonObject({'stdout': python_lib_Subprocess.PIPE, 'stderr': python_lib_Subprocess.PIPE, 'stdin': python_lib_Subprocess.PIPE, 'close_fds': isPosix})
         Reflect.setField(o,"bufsize",(Reflect.field(o,"bufsize") if (hasattr(o,(("_hx_" + "bufsize") if (("bufsize" in python_Boot.keywords)) else (("_hx_" + "bufsize") if (((((len("bufsize") > 2) and ((ord("bufsize"[0]) == 95))) and ((ord("bufsize"[1]) == 95))) and ((ord("bufsize"[(len("bufsize") - 1)]) != 95)))) else "bufsize")))) else 0))
@@ -384,7 +384,7 @@ class HaxeServerStdio:
             raise _HxException(((("Haxe server failed to start: (" + Std.string(exitCode)) + ") ") + ("null" if errorMessage is None else errorMessage)))
         self.errQueue = HaxeServerStdio.createServerMessageQueue(self.process.stderr)
         haxeVersionString = self.execute("-version",1.5).toString()
-        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 106, 'className': "HaxeServerStdio", 'methodName': "start"}))
+        haxe_Log.trace(("Haxe server started: " + ("null" if haxeVersionString is None else haxeVersionString)),_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 104, 'className': "HaxeServerStdio", 'methodName': "start"}))
 
     def restart(self):
         self.terminate()
@@ -392,7 +392,7 @@ class HaxeServerStdio:
 
     def terminate(self):
         if (self.process is not None):
-            haxe_Log.trace("Stopping haxe server",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 123, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
+            haxe_Log.trace("Stopping haxe server",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 121, 'className': "HaxeServerStdio", 'methodName': "terminate"}))
             self.process.terminate()
         self.process = None
         self.errQueue = None
@@ -461,7 +461,7 @@ class HaxeServerStdio:
                     pass
             else:
                 e1 = _hx_e1
-                haxe_Log.trace("Unknown error reading from queue: $e",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 227, 'className': "HaxeServerStdio", 'methodName': "execute"}))
+                haxe_Log.trace("Unknown error reading from queue: $e",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 224, 'className': "HaxeServerStdio", 'methodName': "execute"}))
         self.process.stdin.write(payloadBytes.b)
         self.process.stdin.flush()
         try:
@@ -516,12 +516,10 @@ class HaxeServerStdio:
                     pipeBytes = haxe_io_Bytes.ofData(pipe1.read(bytesRemaining))
                     if (pipeBytes is None):
                         pipeDead = True
-                        haxe_Log.trace("Pipe finished (case B - message was null)",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 295, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
-                        break
                     else:
                         bytesRemaining = (bytesRemaining - pipeBytes.length)
                         if (bytesRemaining > 0):
-                            haxe_Log.trace((("\tread chunk of " + Std.string(pipeBytes.length)) + " bytes"),_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 300, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
+                            haxe_Log.trace((("\tread chunk of " + Std.string(pipeBytes.length)) + " bytes"),_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 298, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
                         b2 = pipeBytes.b
                         _g = 0
                         _g1 = pipeBytes.length
@@ -530,11 +528,12 @@ class HaxeServerStdio:
                             _g = (_g + 1)
                             messageBuffer.b.append(b2[i])
                 if pipeDead:
+                    haxe_Log.trace("Pipe finished (case B - message was null)",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 305, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
                     break
                 if (bytesRemaining == 0):
                     messageBytes = messageBuffer.getBytes()
-                    haxe_Log.trace("Message read successfully",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 315, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
-                    haxe_Log.trace((("\"" + Std.string(messageBytes)) + "\""),_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 316, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
+                    haxe_Log.trace("Message read successfully",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 314, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
+                    haxe_Log.trace((("\"" + Std.string(messageBytes)) + "\""),_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 315, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
                     queue.put(messageBytes)
                 else:
                     raise _HxException("Unexpected number of bytes return from pipe")
@@ -552,7 +551,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
     __slots__ = ()
     _hx_fields = []
     _hx_methods = ["on_modified", "on_close", "on_post_save_async", "on_query_completions", "on_hover"]
-    _hx_statics = ["HAXE_STATUS", "is_applicable", "applies_to_primary_view_only", "updateErrors", "generateFunctionCompletion", "parseFunctionSignature", "isUpperCase", "clampString"]
+    _hx_statics = ["HAXE_STATUS", "is_applicable", "applies_to_primary_view_only", "updateErrors", "generateFunctionCompletion", "isUpperCase", "clampString"]
     _hx_super = sublime_plugin_ViewEventListener
 
 
@@ -582,7 +581,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
             completionLocation = (completionLocation - len(prefix))
         else:
             displayMode = "toplevel"
-        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(displayMode)) + "\""),_hx_AnonObject({'fileName': "src/HaxeView.hx", 'lineNumber': 56, 'className': "HaxeView", 'methodName': "on_query_completions"}))
+        haxe_Log.trace((((("Autocomplete scope \"" + ("null" if completionScope is None else completionScope)) + "\" mode \"") + Std.string(displayMode)) + "\""),_hx_AnonObject({'fileName': "src/HaxeView.hx", 'lineNumber': 54, 'className': "HaxeView", 'methodName': "on_query_completions"}))
         if (displayMode is None):
             return None
         hxml = HaxeProject.getHxmlForView(self.view)
@@ -641,7 +640,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
                         info = kind
                     completion = name
                     if (kind == "method"):
-                        func = HaxeView.parseFunctionSignature(_hx_type)
+                        func = SyntaxTools.parseHaxeFunctionSignature(_hx_type)
                         if ((func.parameters[0] if 0 < len(func.parameters) else None).type == "Void"):
                             _this = func.parameters
                             if (len(_this) != 0):
@@ -718,7 +717,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
                     info2 = (type1 if ((type1 is not None)) else kind3)
                     completion2 = name1
                     if (type1 is not None):
-                        t = HaxeView.parseFunctionSignature(type1)
+                        t = SyntaxTools.parseHaxeFunctionSignature(type1)
                         if (len(t.parameters) > 0):
                             kind3 = "method"
                             if ((t.parameters[0] if 0 < len(t.parameters) else None).type == "Void"):
@@ -839,7 +838,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
         displayMode = "type"
         details = True
         result = haxeServer.display(hxml,self.view.file_name(),point,displayMode,details,viewContent)
-        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "src/HaxeView.hx", 'lineNumber': 245, 'className': "HaxeView", 'methodName': "on_hover"}))
+        haxe_Log.trace(((("on_hover \"" + ("null" if scope is None else scope)) + "\" ") + Std.string(result)),_hx_AnonObject({'fileName': "src/HaxeView.hx", 'lineNumber': 243, 'className': "HaxeView", 'methodName': "on_hover"}))
         try:
             if (not result.hasError):
                 x = Xml.parse(result.message)
@@ -855,7 +854,7 @@ class HaxeView(sublime_plugin_ViewEventListener):
         except Exception as _hx_e:
             _hx_e1 = _hx_e.val if isinstance(_hx_e, _HxException) else _hx_e
             e = _hx_e1
-            haxe_Log.trace(("on_hover error: " + Std.string(e)),_hx_AnonObject({'fileName': "src/HaxeView.hx", 'lineNumber': 259, 'className': "HaxeView", 'methodName': "on_hover"}))
+            haxe_Log.trace(("on_hover error: " + Std.string(e)),_hx_AnonObject({'fileName': "src/HaxeView.hx", 'lineNumber': 257, 'className': "HaxeView", 'methodName': "on_hover"}))
 
     @staticmethod
     def is_applicable(settings):
@@ -888,46 +887,6 @@ class HaxeView(sublime_plugin_ViewEventListener):
             return ((("${" + Std.string(((i - 1)))) + HxOverrides.stringOrNull((((":" + HxOverrides.stringOrNull(p1.name)) if ((p1.name is not None)) else "")))) + "}")
         snippetArguments = list(map(_hx_local_2,func.parameters))
         return _hx_AnonObject({'info': info, 'display': display, 'completion': (((("" + ("null" if name is None else name)) + "(") + HxOverrides.stringOrNull(", ".join([python_Boot.toString1(x1,'') for x1 in snippetArguments]))) + ")")})
-
-    @staticmethod
-    def parseFunctionSignature(signature):
-        parameters = list()
-        returnType = None
-        signature = StringTools.replace(signature,"->","\x01")
-        parts = list()
-        buffer = ""
-        level = 0
-        _g = 0
-        _g1 = len(signature)
-        while (_g < _g1):
-            i = _g
-            _g = (_g + 1)
-            c = ("" if (((i < 0) or ((i >= len(signature))))) else signature[i])
-            c1 = c
-            if (((c1 == "{") or ((c1 == "<"))) or ((c1 == "("))):
-                level = (level + 1)
-                buffer = (("null" if buffer is None else buffer) + ("null" if c is None else c))
-            elif (((c1 == "}") or ((c1 == ">"))) or ((c1 == ")"))):
-                level = (level - 1)
-                buffer = (("null" if buffer is None else buffer) + ("null" if c is None else c))
-            elif (c == "\x01"):
-                if (level <= 0):
-                    x = StringTools.trim(buffer)
-                    parts.append(x)
-                    buffer = ""
-                else:
-                    buffer = (("null" if buffer is None else buffer) + "->")
-            else:
-                buffer = (("null" if buffer is None else buffer) + ("null" if c is None else c))
-        _g2 = 0
-        while (_g2 < len(parts)):
-            part = (parts[_g2] if _g2 >= 0 and _g2 < len(parts) else None)
-            _g2 = (_g2 + 1)
-            firstColonIdx = part.find(":")
-            x1 = _hx_AnonObject({'name': (StringTools.trim(HxString.substr(part,0,firstColonIdx)) if ((firstColonIdx != -1)) else None), 'type': StringTools.trim(HxString.substr(part,(firstColonIdx + 1),None))})
-            parameters.append(x1)
-        returnType = StringTools.trim(buffer)
-        return _hx_AnonObject({'parameters': parameters, 'returnType': returnType})
 
     @staticmethod
     def isUpperCase(_hx_str):
@@ -1037,9 +996,17 @@ class StringBuf:
     _hx_class_name = "StringBuf"
     __slots__ = ("b",)
     _hx_fields = ["b"]
+    _hx_methods = ["get_length"]
 
     def __init__(self):
         self.b = python_lib_io_StringIO()
+
+    def get_length(self):
+        pos = self.b.tell()
+        self.b.seek(0,2)
+        _hx_len = self.b.tell()
+        self.b.seek(pos,0)
+        return _hx_len
 
 StringBuf._hx_class = StringBuf
 
@@ -1118,6 +1085,120 @@ class StringTools:
         _this = (list(s) if ((sub == "")) else s.split(sub))
         return by.join([python_Boot.toString1(x1,'') for x1 in _this])
 StringTools._hx_class = StringTools
+
+
+class SyntaxTools:
+    _hx_class_name = "SyntaxTools"
+    __slots__ = ()
+    _hx_statics = ["scopeAwareSplit", "unwrap", "parseHaxeFunctionSignature"]
+
+    @staticmethod
+    def scopeAwareSplit(string,delimiter,scopeIncreaseChars = "(<{",scopeDecreaseChars = ")>}"):
+        if (scopeIncreaseChars is None):
+            scopeIncreaseChars = "(<{"
+        if (scopeDecreaseChars is None):
+            scopeDecreaseChars = ")>}"
+        parts = list()
+        buffer = StringBuf()
+        _g = []
+        _g1 = 0
+        _g2 = len(scopeIncreaseChars)
+        while (_g1 < _g2):
+            _g1 = (_g1 + 1)
+            _g.append(0)
+        _g3 = 0
+        _g4 = len(string)
+        while (_g3 < _g4):
+            i = _g3
+            _g3 = (_g3 + 1)
+            c = ("" if (((i < 0) or ((i >= len(string))))) else string[i])
+            groundLevel = True
+            _g31 = 0
+            while (_g31 < len(_g)):
+                def _hx_local_2():
+                    nonlocal _g31
+                    _hx_local_1 = _g31
+                    _g31 = (_g31 + 1)
+                    return _hx_local_1
+                l = python_internal_ArrayImpl._get(_g, _hx_local_2())
+                if (l > 0):
+                    groundLevel = False
+                    break
+            if ((c == delimiter) and groundLevel):
+                x = buffer.b.getvalue()
+                parts.append(x)
+                buffer = StringBuf()
+            else:
+                incIndex = scopeIncreaseChars.find(c)
+                decIndex = scopeDecreaseChars.find(c)
+                if (incIndex != -1):
+                    python_internal_ArrayImpl._set(_g, incIndex, ((_g[incIndex] if incIndex >= 0 and incIndex < len(_g) else None) + 1))
+                if (decIndex != -1):
+                    python_internal_ArrayImpl._set(_g, decIndex, ((_g[decIndex] if decIndex >= 0 and decIndex < len(_g) else None) - 1))
+                s = Std.string(c)
+                buffer.b.write(s)
+        x1 = buffer.b.getvalue()
+        parts.append(x1)
+        return parts
+
+    @staticmethod
+    def unwrap(string,openChar,closeChar,recursive = False):
+        if (recursive is None):
+            recursive = False
+        level = 0
+        buffer = StringBuf()
+        matchingChars = (openChar == closeChar)
+        _g = 0
+        _g1 = len(string)
+        while (_g < _g1):
+            i = _g
+            _g = (_g + 1)
+            c = ("" if (((i < 0) or ((i >= len(string))))) else string[i])
+            if matchingChars:
+                if (c == openChar):
+                    level = (0 if ((level == 1)) else 1)
+                if (level == 1):
+                    s = Std.string(c)
+                    buffer.b.write(s)
+            else:
+                if (c == closeChar):
+                    level = (level - 1)
+                if (level >= 1):
+                    s1 = Std.string(c)
+                    buffer.b.write(s1)
+                if (c == openChar):
+                    level = (level + 1)
+        unwrapped = (string if ((buffer.get_length() == 0)) else buffer.b.getvalue())
+        if recursive:
+            if (len(unwrapped) == len(string)):
+                return string
+            else:
+                return SyntaxTools.unwrap(unwrapped,openChar,closeChar,recursive)
+        else:
+            return unwrapped
+
+    @staticmethod
+    def parseHaxeFunctionSignature(signature):
+        parameters = None
+        arrowMarker = "\x1F"
+        arrowParts = SyntaxTools.scopeAwareSplit(StringTools.replace(signature,"->",arrowMarker),arrowMarker,"(<{",")>}")
+        returnType = StringTools.trim((None if ((len(arrowParts) == 0)) else arrowParts.pop()))
+        if (len(arrowParts) > 0):
+            def _hx_local_0(part):
+                return SyntaxTools.unwrap(part,"(",")")
+            unwrappedArrowParts = list(map(_hx_local_0,arrowParts))
+            parameterExpressions = (SyntaxTools.scopeAwareSplit((unwrappedArrowParts[0] if 0 < len(unwrappedArrowParts) else None),",","(<{",")>}") + unwrappedArrowParts[1:None])
+            def _hx_local_1(p):
+                return StringTools.replace(p,arrowMarker,"->")
+            parameterExpressions = list(map(_hx_local_1,parameterExpressions))
+            def _hx_local_2(expr):
+                firstColonIdx = expr.find(":")
+                return _hx_AnonObject({'name': (StringTools.trim(HxString.substr(expr,0,firstColonIdx)) if ((firstColonIdx != -1)) else None), 'type': StringTools.trim(HxString.substr(expr,(firstColonIdx + 1),None))})
+            parameters = list(map(_hx_local_2,parameterExpressions))
+        else:
+            parameters = []
+        return _hx_AnonObject({'parameters': parameters, 'returnType': returnType})
+SyntaxTools._hx_class = SyntaxTools
 
 
 class sys_FileSystem:
