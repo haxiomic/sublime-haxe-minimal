@@ -46,38 +46,19 @@ class SyntaxTools {
 	}
 
 	/**
-		(string) -> string
+		Examples
+		- '{string}'.unwrap('{', '}') -> 'string' // braces removed
+		- 'a: {string}'.unwrap('{', '}') -> 'a: {string}' // no change
+		- '(( (content()) ))'.unwrap('(', ')', true) -> 'content()' // all enclosing parentheses removed
 	**/
 	static public function unwrap(string: String, openChar: String, closeChar: String, recursive: Bool = false) {
-		var level = 0;
-		var buffer = new StringBuf();
-		var matchingChars = openChar == closeChar;
-
-		for (i in 0...string.length) {
-			var c = string.charAt(i);
-
-			if (matchingChars) {
-				if (c == openChar)  level = level == 1 ? 0 : 1;
-				if (level == 1)     buffer.add(c);
-			} else {
-				if (c == closeChar) level--;
-				if (level >= 1)     buffer.add(c);
-				if (c == openChar)  level++;
-			}
-
-		}
-
-		var unwrapped = buffer.length == 0 ? string : buffer.toString();
-
-		if (recursive) {
-			if (unwrapped.length == string.length) {
-				// string hasn't changed therefore unwrap is complete
-				return string;
-			} else {
-				return unwrap(unwrapped, openChar, closeChar, recursive);
-			}
+		// remove open and close chars from either end of the string, ignoring spaces
+		var trimmed = string.trim();
+		if (trimmed.charAt(0) == openChar && trimmed.charAt(trimmed.length - 1) == closeChar) {
+			var unwrapped = trimmed.substring(1, trimmed.length - 1);
+			return recursive ? unwrap(unwrapped, openChar, closeChar, recursive) : unwrapped;
 		} else {
-			return unwrapped;
+			return string;
 		}
 	}
 
@@ -122,7 +103,6 @@ class SyntaxTools {
 		} else {
 			parameters = [];
 		}
-
 
 		return {
 			parameters: parameters,
