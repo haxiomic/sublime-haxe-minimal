@@ -4,8 +4,6 @@ import python.lib.Queue;
 import python.lib.threading.Thread;
 import haxe.io.Bytes;
 
-using StringTools;
-
 typedef BuildOutput = {
 	message: String,
 	hasError: Bool,

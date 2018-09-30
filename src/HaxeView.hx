@@ -1,5 +1,3 @@
-using StringTools;
-
 @:enum abstract EntryKind(Int) {
 	var Unknown = 0;
 	var Method = 1;
@@ -120,7 +118,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 					switch kind {
 						case 'method':
 							// process for readability
-							var c = generateFunctionCompletion(name, parseFunctionSignature(type));
+							var c = generateFunctionCompletion(name, SyntaxTools.parseHaxeFunctionSignature(type));
 							display = c.display;
 							info = c.info;
 							completion = c.completion;
@@ -152,7 +150,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 
 					// check if type represents a function, if so, process for readability
 					if (type != null) {
-						var t = parseFunctionSignature(type);
+						var t = SyntaxTools.parseHaxeFunctionSignature(type);
 						if (t.parameters.length > 0) { // method type
 							kind = 'method';
 							var c = generateFunctionCompletion(name, t);
@@ -296,66 +294,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 			completion: completion
 		}
 	}
-
-	/**
-		Split function into parameters and return type
-
-		This method does not validate the signature string
-
-		// @! does not support new syntax: (a: A, b: B) -> C
-	**/
-	static function parseFunctionSignature(signature: String) {
-		// Examples
-		// 	f : (Int -> ( Void -> String ) ) -> name : Int -> Array<String> -> Void
-		// 	a : Array<Void->Void> -> Void
-		// 	m : { x: String -> Int } -> Void
-
-		var parameters = new Array<{name: String, type: String}>();
-		var returnType: String = null;
-
-		var arrowMarker = String.fromCharCode(0x1);
-
-		// to make parsing easier, we replace the arrows with a single special character
-		signature = signature.replace('->', arrowMarker);
-
-		// split by -> only when outside parentheses
-		var parts = new Array<String>();
-
-		var buffer = '';
-		var level = 0;
-		for (i in 0...signature.length) {
-			var c = signature.charAt(i);
-			switch c {
-				case '(', '<', '{': level++; buffer += c;
-				case ')', '>', '}': level--; buffer += c;
-				case c if (c == arrowMarker): 
-					if (level <= 0) {
-						// flush buffer
-						parts.push(buffer.trim());
-						buffer = '';
-					} else {
-						// restore arrow
-						buffer += '->';
-					}
-				default: buffer += c;
-			}
-		}
-
-		for(part in parts) {
-			var firstColonIdx = part.indexOf(':');
-			parameters.push({
-				name: firstColonIdx != -1 ? part.substr(0, firstColonIdx).trim() : null,
-				type: part.substr(firstColonIdx + 1).trim()
-			});
-		}
-
-		returnType = buffer.trim();
-
-		return {
-			parameters: parameters,
-			returnType: returnType
-		}
-	}
+	
 
 	static inline function isUpperCase(str: String) {
 		return str.toUpperCase() == str;
