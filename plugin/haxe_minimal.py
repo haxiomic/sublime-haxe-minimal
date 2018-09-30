@@ -533,7 +533,6 @@ class HaxeServerStdio:
                 if (bytesRemaining == 0):
                     messageBytes = messageBuffer.getBytes()
                     haxe_Log.trace("Message read successfully",_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 314, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
-                    haxe_Log.trace((("\"" + Std.string(messageBytes)) + "\""),_hx_AnonObject({'fileName': "src/HaxeServer.hx", 'lineNumber': 315, 'className': "HaxeServerStdio", 'methodName': "createServerMessageQueue"}))
                     queue.put(messageBytes)
                 else:
                     raise _HxException("Unexpected number of bytes return from pipe")
@@ -996,17 +995,9 @@ class StringBuf:
     _hx_class_name = "StringBuf"
     __slots__ = ("b",)
     _hx_fields = ["b"]
-    _hx_methods = ["get_length"]
 
     def __init__(self):
         self.b = python_lib_io_StringIO()
-
-    def get_length(self):
-        pos = self.b.tell()
-        self.b.seek(0,2)
-        _hx_len = self.b.tell()
-        self.b.seek(pos,0)
-        return _hx_len
 
 StringBuf._hx_class = StringBuf
 
@@ -1145,37 +1136,21 @@ class SyntaxTools:
     def unwrap(string,openChar,closeChar,recursive = False):
         if (recursive is None):
             recursive = False
-        level = 0
-        buffer = StringBuf()
-        matchingChars = (openChar == closeChar)
-        _g = 0
-        _g1 = len(string)
-        while (_g < _g1):
-            i = _g
-            _g = (_g + 1)
-            c = ("" if (((i < 0) or ((i >= len(string))))) else string[i])
-            if matchingChars:
-                if (c == openChar):
-                    level = (0 if ((level == 1)) else 1)
-                if (level == 1):
-                    s = Std.string(c)
-                    buffer.b.write(s)
-            else:
-                if (c == closeChar):
-                    level = (level - 1)
-                if (level >= 1):
-                    s1 = Std.string(c)
-                    buffer.b.write(s1)
-                if (c == openChar):
-                    level = (level + 1)
-        unwrapped = (string if ((buffer.get_length() == 0)) else buffer.b.getvalue())
-        if recursive:
-            if (len(unwrapped) == len(string)):
-                return string
-            else:
-                return SyntaxTools.unwrap(unwrapped,openChar,closeChar,recursive)
+        trimmed = StringTools.trim(string)
+        tmp = None
+        if ((("" if ((0 >= len(trimmed))) else trimmed[0])) == openChar):
+            index = (len(trimmed) - 1)
+            tmp = ((("" if (((index < 0) or ((index >= len(trimmed))))) else trimmed[index])) == closeChar)
         else:
-            return unwrapped
+            tmp = False
+        if tmp:
+            unwrapped = HxString.substring(trimmed,1,(len(trimmed) - 1))
+            if recursive:
+                return SyntaxTools.unwrap(unwrapped,openChar,closeChar,recursive)
+            else:
+                return unwrapped
+        else:
+            return string
 
     @staticmethod
     def parseHaxeFunctionSignature(signature):
