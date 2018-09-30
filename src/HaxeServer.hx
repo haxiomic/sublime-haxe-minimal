@@ -213,7 +213,6 @@ class HaxeServerStdio implements HaxeServer {
 		// lock writing to the process until it's returns results
 		processWriteLock.acquire();
 		{
-			// trace('Writing buffer: ', payloadBytes.getData());
 			// if there was an timeout or an exception reading previous message, there will be residual junk in the queue
 			// clear it before sending new payloads
 			
@@ -227,7 +226,10 @@ class HaxeServerStdio implements HaxeServer {
 				trace("Unknown error reading from queue: $e");
 			}
 
-			process.stdin.write(payloadBytes.getData());
+			var payload = payloadBytes.getData();
+			// trace('Writing buffer: ', payload);
+
+			process.stdin.write(payload);
 			process.stdin.flush();
 
 			// @! if this times-out it will throw – it might be better to catch it and return null instead
@@ -285,15 +287,13 @@ class HaxeServerStdio implements HaxeServer {
 				var messageBuffer = new haxe.io.BytesBuffer();
 				trace('Reading message ($bytesRemaining bytes)');
 
-				// may not be complete message
+				// read message in chunks
 				var pipeDead: Bool = false;
 				while (bytesRemaining > 0) {
 					var pipeBytes = haxe.io.Bytes.ofData(pipe.read(bytesRemaining));
 
 					if (pipeBytes == null) {
 						pipeDead = true;
-						trace('Pipe finished (case B - message was null)');
-						break; // pipe finished
 					} else {
 						bytesRemaining -= pipeBytes.length;
 						if (bytesRemaining > 0) {
@@ -304,6 +304,7 @@ class HaxeServerStdio implements HaxeServer {
 				}
 
 				if (pipeDead) {
+					trace('Pipe finished (case B - message was null)');
 					break;
 				}
 
