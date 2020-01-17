@@ -266,9 +266,10 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 	static inline function generateFunctionCompletion(name: String, func: {
 		parameters: Array<{name: String, type: String}>,
 		returnType: String,
+		optional: Bool,
 	}) {
 		// remove first element if it is void
-		if (func.parameters[0].type == 'Void') {
+		if (func.parameters[0] != null && func.parameters[0].type == 'Void') {
 			func.parameters.shift();
 		}
 
@@ -276,7 +277,7 @@ class HaxeView extends sublime_plugin.ViewEventListener {
 		var parametersFormatted = func.parameters.map(function(p) return '${p.name}:${p.type}').join(', ');
 
 		var info = func.returnType;
-		var display = func.parameters.length > 0 ? '$name($parametersFormatted)' : '$name()';
+		var display = '${func.optional ? '?' : ''}$name($parametersFormatted)';
 
 		var i = 1;
 		var snippetArguments = func.parameters.map(

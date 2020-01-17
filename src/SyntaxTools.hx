@@ -70,6 +70,16 @@ class SyntaxTools {
 	static public function parseHaxeFunctionSignature(signature: String) {
 		var parameters: Array<{name: String, type: String}>;
 		var returnType: String;
+		var optional: Bool;
+
+		// unwrap Null<T>
+		if (signature.startsWith('Null<') && signature.endsWith('>')) {
+			optional = true;
+			signature = signature.substr('Null<'.length);
+			signature = signature.substr(0, signature.length - 1);
+		} else {
+			optional = false;
+		}
 
 		var arrowMarker = '\x1F';
 		var scopeInc = '(<{';
@@ -104,9 +114,12 @@ class SyntaxTools {
 			parameters = [];
 		}
 
+		returnType = returnType.replace(arrowMarker, '->');
+
 		return {
 			parameters: parameters,
-			returnType: returnType
+			returnType: returnType,
+			optional: optional,
 		}
 	}
 
